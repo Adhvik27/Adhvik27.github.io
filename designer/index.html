@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ISO Wall Panel Designer</title>
+<style>
+  :root {
+    --bg: #1a1d24;
+    --bg-panel: #232730;
+    --bg-elev: #2a2f3a;
+    --bg-canvas: #f4f1ea;
+    --border: #3a4050;
+    --border-light: #4a5060;
+    --text: #e8ecf0;
+    --text-dim: #8a92a0;
+    --text-muted: #5a6270;
+    --accent: #d4a574;
+    --accent-dim: #b8895c;
+    --success: #5fb878;
+    --danger: #d96d6d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+  }
+  
+  .app { display: flex; height: 100vh; position: relative; }
+  
+  /* ============ Sidebar ============ */
+  .sidebar {
+    width: 240px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: transform 0.25s ease, margin 0.25s ease;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  
+  .sidebar.collapsed {
+    transform: translateX(-240px);
+    margin-right: -240px;
+  }
+  
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .brand-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: brightness(0) invert(0.72) sepia(0.6) saturate(3.5) hue-rotate(-15deg);
+  }
+  
+  .brand-text { font-size: 15px; font-weight: 600; letter-spacing: 0.3px; }
+  .brand-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  
+  .sidebar h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  
+  .piece-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  
+  .piece-thumb {
+    width: 100%;
+    height: 130px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    transition: all 0.15s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .piece-thumb:hover {
+    border-color: var(--accent);
+    background: #2f3540;
+    transform: translateY(-1px);
+  }
+  
+  .piece-thumb:active { cursor: grabbing; }
+  
+  .piece-thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    filter: invert(0.85);
+  }
+  
+  .piece-label { font-size: 12px; color: var(--text-dim); text-align: center; }
+  
+  .sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-left: none;
+    color: var(--text-dim);
+    width: 22px;
+    height: 56px;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s, left 0.25s ease;
+    z-index: 11;
+    font-size: 14px;
+    left: 240px;
+  }
+  
+  .sidebar-toggle.collapsed { left: 0; }
+  .sidebar-toggle:hover { background: var(--bg-elev); color: var(--accent); }
+  
+  /* ============ Canvas Area ============ */
+  .canvas-wrapper {
+    flex: 1;
+    position: relative;
+    background: var(--bg-canvas);
+    overflow: hidden;
+    cursor: default;
+  }
+  
+  .canvas-wrapper.panning { cursor: grabbing; }
+  .canvas-wrapper.marqueeing { cursor: crosshair; }
+  
+  .canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+  }
+  
+  .canvas.grid-on {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='69.28' viewBox='0 0 80 69.28'%3E%3Cg fill='none' stroke='%23a0a8b8' stroke-width='0.6' opacity='0.35'%3E%3Cpath d='M0 0 L40 69.28 L80 0 Z'/%3E%3Cpath d='M0 69.28 L40 0 L80 69.28 Z'/%3E%3Cpath d='M40 0 L40 69.28'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 80px 69.28px;
+  }
+  
+  .placed-piece {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    transform-origin: center center;
+    transition: filter 0.1s;
+  }
+  
+  .placed-piece img {
+    display: block;
+    pointer-events: none;
+    -webkit-user-drag: none;
+    transition: filter 0.2s;
+  }
+  
+  .placed-piece.selected {
+    outline: 2px dashed var(--accent);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+  
+  .placed-piece.dragging { opacity: 0.85; z-index: 1000; }
+  .placed-piece.snapping {
+    outline: 2px solid var(--success);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+  
+  /* ============ Top Bar ============ */
+  .topbar {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 100;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+  }
+  
+  .topbar::-webkit-scrollbar { height: 4px; }
+  .topbar::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+  .topbar::-webkit-scrollbar-track { background: transparent; }
+  
+  .topbar-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+  .topbar-divider { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
+  .topbar-spacer { flex: 1; min-width: 8px; }
+  
+  .topbar-info {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 0 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .topbar-info strong { color: var(--accent); font-weight: 600; }
+  
+  .btn {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-family: inherit;
+    flex-shrink: 0;
+  }
+  
+  .btn:hover:not(:disabled) { background: #353c4a; border-color: var(--border-light); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.icon-only { padding: 7px 9px; font-size: 14px; }
+  
+  .btn-primary { background: var(--accent); color: #1a1d24; border-color: var(--accent); font-weight: 600; }
+  .btn-primary:hover { background: #e0b285; border-color: #e0b285; }
+  
+  .btn-success { background: var(--success); color: #1a1d24; border-color: var(--success); font-weight: 600; }
+  .btn-success:hover { background: #6fc888; border-color: #6fc888; }
+  
+  .btn-danger:hover { background: rgba(217, 109, 109, 0.15); border-color: var(--danger); color: var(--danger); }
+  .btn-toggle.active { background: var(--accent); color: #1a1d24; border-color: var(--accent); }
+  
+  /* Inline scale */
+  .inline-scale {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  
+  .inline-scale.disabled { opacity: 0.45; pointer-events: none; }
+  
+  .inline-scale label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  .inline-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 90px;
+    height: 3px;
+    background: var(--border-light);
+    border-radius: 2px;
+    outline: none;
+  }
+  
+  .inline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  .inline-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+  
+  .scale-readout {
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 600;
+    min-width: 36px;
+    text-align: right;
+  }
+  
+  /* Inline colors */
+  .inline-colors {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  
+  .inline-colors.disabled { opacity: 0.45; pointer-events: none; }
+  
+  .inline-colors label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 2px;
+  }
+  
+  .color-row { display: flex; gap: 4px; align-items: center; }
+  .color-divider { width: 1px; height: 18px; background: var(--border-light); margin: 0 2px; }
+  
+  .mini-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s;
+    position: relative;
+    padding: 0;
+    box-shadow: 0 0 0 1px var(--border-light);
+  }
+  
+  .mini-swatch:hover { transform: scale(1.15); }
+  .mini-swatch.active {
+    border-color: var(--text);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  
+  .mini-swatch.no-color { background: var(--bg-canvas); }
+  .mini-swatch.no-color::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    right: 2px;
+    height: 2px;
+    background: var(--danger);
+    transform: rotate(-45deg);
+  }
+  
+  .picker-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: 1px dashed var(--border-light);
+    background: var(--bg-panel);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  
+  .picker-btn:hover {
+    background: var(--bg-elev);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  
+  /* ============ Pieces Needed Panel ============ */
+  .bom-panel {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 100;
+    width: 280px;
+    max-height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s ease, max-height 0.25s ease;
+  }
+  
+  .bom-panel.expanded {
+    width: 480px;
+    max-height: calc(100vh - 130px);
+  }
+  
+  .bom-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+  
+  .bom-header h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  
+  .bom-header-actions { display: flex; gap: 6px; align-items: center; }
+  
+  .bom-count-pill {
+    background: var(--accent);
+    color: #1a1d24;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  
+  .bom-expand-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 14px;
+    transition: color 0.15s;
+    line-height: 1;
+  }
+  
+  .bom-expand-btn:hover { color: var(--accent); }
+  .bom-body { overflow-y: auto; padding: 12px 16px; flex: 1; }
+  
+  .bom-piece-group { margin-bottom: 14px; }
+  .bom-piece-group:last-child { margin-bottom: 0; }
+  
+  .bom-piece-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 4px 0 6px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .bom-piece-header span:last-child { color: var(--accent); }
+  
+  .bom-variation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+  
+  .bom-variation-label { color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+  
+  .color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--border-light);
+    display: inline-block;
+  }
+  
+  .bom-count { 
+    color: var(--text);
+    font-weight: 600;
+    background: var(--bg-elev);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  
+  .bom-total {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  
+  .empty-state { color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px 0; }
+  
+  /* ============ Help text ============ */
+  .help {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 8px;
+    line-height: 1.7;
+    z-index: 99;
+    max-width: 560px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  
+  .help kbd {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-family: monospace;
+    font-size: 10px;
+    color: var(--text);
+  }
+  
+  /* ============ Ghost & Snap ============ */
+  .ghost { position: absolute; pointer-events: none; opacity: 0.5; z-index: 999; }
+  .ghost img { display: block; pointer-events: none; }
+  
+  .snap-indicator {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--success);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 998;
+    box-shadow: 0 0 0 4px rgba(95, 184, 120, 0.3);
+    animation: snapPulse 0.6s ease-in-out infinite alternate;
+  }
+  
+  @keyframes snapPulse {
+    from { transform: translate(-50%, -50%) scale(1); }
+    to { transform: translate(-50%, -50%) scale(1.3); }
+  }
+  
+  /* ============ Marquee ============ */
+  .marquee-rect {
+    position: absolute;
+    border: 1px dashed var(--accent);
+    background: rgba(212, 165, 116, 0.1);
+    pointer-events: none;
+    z-index: 997;
+  }
+  
+  /* ============ Background context menu ============ */
+  .bg-menu {
+    position: absolute;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    z-index: 2000;
+    display: none;
+  }
+  
+  .bg-menu.visible { display: block; }
+  
+  .bg-menu-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  
+  .bg-presets {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+  }
+  
+  .bg-preset {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border-light);
+    cursor: pointer;
+    transition: transform 0.1s;
+    padding: 0;
+  }
+  
+  .bg-preset:hover { transform: scale(1.1); border-color: var(--accent); }
+  .bg-preset.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  
+  .bg-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  
+  .bg-menu-row label { font-size: 11px; color: var(--text-dim); }
+  
+  /* ============ Calibration ============ */
+  .calib-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(10, 12, 18, 0.92);
+    z-index: 5000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    overflow: auto;
+  }
+  
+  .calib-overlay.active { display: flex; }
+  
+  .calib-header { color: var(--text); text-align: center; margin-bottom: 16px; max-width: 700px; }
+  .calib-header h2 { font-size: 22px; margin-bottom: 8px; font-weight: 600; color: var(--accent); }
+  .calib-header p { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+  
+  .calib-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+  
+  .calib-tab {
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  
+  .calib-tab:hover { background: #353c4a; }
+  .calib-tab.active { background: var(--accent); color: #1a1d24; border-color: var(--accent); }
+  .calib-tab.has-data::after { content: ' ✓'; color: var(--success); }
+  
+  .calib-canvas-wrap {
+    position: relative;
+    background: var(--bg-canvas);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+  
+  .calib-canvas {
+    position: relative;
+    cursor: crosshair;
+    background: #fafafa;
+    border: 2px dashed var(--border-light);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .calib-canvas img { display: block; pointer-events: none; -webkit-user-drag: none; }
+  
+  .calib-anchor {
+    position: absolute;
+    width: 20px; height: 20px;
+    background: var(--danger);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    z-index: 10;
+    transition: transform 0.1s;
+  }
+  
+  .calib-anchor:hover { transform: translate(-50%, -50%) scale(1.3); }
+  .calib-anchor::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 4px; height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  .calib-controls { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+  
+  .calib-info {
+    color: var(--text);
+    margin-top: 12px;
+    font-size: 13px;
+    background: var(--bg-elev);
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  
+  /* ============ Toast ============ */
+  .toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--bg-panel);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 6000;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<svg id="tintSvg" width="0" height="0" style="position: absolute; pointer-events: none;">
+  <defs></defs>
+</svg>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img class="brand-icon" src="ISOR1.png" alt="">
+      <div>
+        <div class="brand-text">ISO Designer</div>
+        <div class="brand-sub">Panel Builder</div>
+      </div>
+    </div>
+    
+    <h2>Pieces</h2>
+    
+    <div class="piece-card">
+      <div class="piece-thumb" draggable="true" data-piece="ISOR1"><img src="ISOR1.png" alt=""></div>
+      <div class="piece-label">Diamond Base</div>
+    </div>
+    <div class="piece-card">
+      <div class="piece-thumb" draggable="true" data-piece="ISOR2"><img src="ISOR2.png" alt=""></div>
+      <div class="piece-label">Top Hub</div>
+    </div>
+    <div class="piece-card">
+      <div class="piece-thumb" draggable="true" data-piece="ISOR3"><img src="ISOR3.png" alt=""></div>
+      <div class="piece-label">Angled Triple</div>
+    </div>
+    <div class="piece-card">
+      <div class="piece-thumb" draggable="true" data-piece="ISOR4"><img src="ISOR4.png" alt=""></div>
+      <div class="piece-label">Corner Triple</div>
+    </div>
+    <div class="piece-card">
+      <div class="piece-thumb" draggable="true" data-piece="ISOR5"><img src="ISOR5.png" alt=""></div>
+      <div class="piece-label">End Diamond</div>
+    </div>
+  </aside>
+  
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">‹</button>
+  
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <div class="canvas grid-on" id="canvas"></div>
+    
+    <div class="topbar" id="topbar">
+      <span class="topbar-info"><strong id="pieceCount">0</strong> pieces</span>
+      
+      <div class="topbar-divider"></div>
+      
+      <div class="topbar-group">
+        <button class="btn icon-only" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+        <button class="btn icon-only" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
+        <button class="btn icon-only" id="rotateBtn" title="Rotate selected 45° (R)">⟳</button>
+      </div>
+      
+      <div class="topbar-divider"></div>
+      
+      <div class="inline-scale disabled" id="inlineScale">
+        <label>Scale</label>
+        <input type="range" class="inline-slider" id="scaleSlider" min="25" max="150" step="25" value="100">
+        <span class="scale-readout" id="scaleReadout">100%</span>
+      </div>
+      
+      <div class="inline-colors disabled" id="inlineColors">
+        <label>Color</label>
+        <div class="color-row" id="presetRow"></div>
+        <div class="color-divider" id="recentDivider" style="display:none;"></div>
+        <div class="color-row" id="recentRow"></div>
+        <button class="picker-btn" id="pickerBtn" title="Custom color">+</button>
+        <input type="color" id="customColorInput" style="display:none;">
+      </div>
+      
+      <div class="topbar-divider"></div>
+      
+      <div class="topbar-group">
+        <button class="btn btn-toggle active icon-only" id="snapToggle" title="Toggle piece snapping">⊕</button>
+        <button class="btn btn-toggle active icon-only" id="gridToggle" title="Toggle grid">▦</button>
+        <button class="btn icon-only" id="calibrateBtn" title="Calibrate anchor points">⚙</button>
+      </div>
+      
+      <div class="topbar-spacer"></div>
+      
+      <div class="topbar-group">
+        <button class="btn btn-success" id="screenshotBtn" title="Download screenshot as JPEG">📷 Capture</button>
+        <button class="btn btn-primary" id="exportBtn" title="Export pieces list">📋 Export</button>
+        <button class="btn btn-danger icon-only" id="clearBtn" title="Clear all">🗑</button>
+      </div>
+    </div>
+    
+    <div class="bom-panel" id="bomPanel">
+      <div class="bom-header">
+        <h3>Pieces Needed</h3>
+        <div class="bom-header-actions">
+          <span class="bom-count-pill" id="bomCountPill">0</span>
+          <button class="bom-expand-btn" id="bomExpandBtn" title="Expand">⤢</button>
+        </div>
+      </div>
+      <div class="bom-body" id="bomList">
+        <div class="empty-state">Drop pieces to start designing</div>
+      </div>
+    </div>
+    
+    <div class="help">
+      Drag pieces · <kbd>R</kbd> rotate · <kbd>←↑↓→</kbd> nudge · <kbd>Shift+drag</kbd> select multiple · <kbd>Scroll</kbd> zoom · <kbd>Drag canvas</kbd> pan · <kbd>Right-click</kbd> background
+    </div>
+    
+    <!-- Background color context menu -->
+    <div class="bg-menu" id="bgMenu">
+      <div class="bg-menu-title">Background Color</div>
+      <div class="bg-presets" id="bgPresets"></div>
+      <div class="bg-menu-row">
+        <label>Custom:</label>
+        <input type="color" id="bgCustomInput" value="#f4f1ea">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="calibOverlay" class="calib-overlay">
+  <div class="calib-header">
+    <h2>Anchor Point Calibration</h2>
+    <p>Click on the piece to add a snap anchor (red dot). Click an existing anchor to remove it.</p>
+  </div>
+  <div class="calib-tabs" id="calibTabs"></div>
+  <div class="calib-canvas-wrap">
+    <div class="calib-canvas" id="calibCanvas">
+      <img id="calibImage" src="" alt="">
+    </div>
+  </div>
+  <div class="calib-info" id="calibInfo">—</div>
+  <div class="calib-controls">
+    <button class="btn" id="calibClearBtn">Clear This Piece</button>
+    <button class="btn" id="calibExportBtn">📋 Copy Anchors</button>
+    <button class="btn btn-primary" id="calibDoneBtn">Done</button>
+  </div>
+</div>
+
+<script>
+  // === Config ===
+  const PIECE_DISPLAY_SIZE = 200;
+  const CALIB_IMAGE_SIZE = 500;
+  const SNAP_DISTANCE = 50;
+  const ROTATION_STEP = 45;
+  const MIN_ZOOM = 0.25;
+  const MAX_ZOOM = 4;
+  
+  const PIECE_TYPES = ['ISOR1', 'ISOR2', 'ISOR3', 'ISOR4', 'ISOR5'];
+  const PIECE_LABELS = {
+    'ISOR1': 'Diamond Base',
+    'ISOR2': 'Top Hub',
+    'ISOR3': 'Angled Triple',
+    'ISOR4': 'Corner Triple',
+    'ISOR5': 'End Diamond',
+  };
+  
+  // Preset colors
+  const COLORS = [
+    { name: 'None', value: null },
+    { name: 'Terracotta', value: '#d4683f' },
+    { name: 'Ochre', value: '#d4a574' },
+    { name: 'Sage', value: '#5fb878' },
+    { name: 'Slate Blue', value: '#4a90d9' },
+    { name: 'Plum', value: '#8a5a8a' },
+    { name: 'Charcoal', value: '#3a3f4a' },
+  ];
+  
+  const BG_PRESETS = [
+    '#f4f1ea', '#ffffff', '#e8e2d4', '#dde2e8',
+    '#1a1d24', '#2b3142', '#8a8a8a', '#c9c0a8',
+    '#d9c5b0', '#b5c4a0', '#a8b5c8', '#cfb5b5',
+  ];
+  
+  // === State ===
+  let placedPieces = [];
+  let pieceIdCounter = 0;
+  let selectedPieceIds = []; // now an array for multi-select
+  let snapEnabled = true;
+  let gridVisible = true;
+  let bomExpanded = false;
+  let sidebarCollapsed = false;
+  let draggingFromSidebar = null;
+  let activeSnapIndicators = [];
+  let calibCurrentPiece = null;
+  let viewTransform = { x: 0, y: 0, zoom: 1 };
+  let canvasBackgroundColor = '#f4f1ea';
+  let ANCHOR_POINTS = {};
+  
+  // Loaded images for screenshot rendering
+  const loadedImages = {};
+  PIECE_TYPES.forEach(type => {
+    const img = new Image();
+    img.src = type + '.png';
+    loadedImages[type] = img;
+  });
+  
+  function loadAnchors() {
+    const saved = localStorage.getItem('isoAnchors');
+    if (saved) { try { ANCHOR_POINTS = JSON.parse(saved); } catch { ANCHOR_POINTS = {}; } }
+    PIECE_TYPES.forEach(t => { if (!ANCHOR_POINTS[t]) ANCHOR_POINTS[t] = []; });
+  }
+  function saveAnchors() { localStorage.setItem('isoAnchors', JSON.stringify(ANCHOR_POINTS)); }
+  loadAnchors();
+  
+  function getRecentColors() {
+    try { return JSON.parse(sessionStorage.getItem('recentColors') || '[]'); } catch { return []; }
+  }
+  function addRecentColor(color) {
+    if (!color) return;
+    let recent = getRecentColors().filter(c => c !== color);
+    recent.unshift(color);
+    recent = recent.slice(0, 6);
+    sessionStorage.setItem('recentColors', JSON.stringify(recent));
+    renderRecentColors();
+  }
+  
+  // === Undo/Redo ===
+  const undoStack = [];
+  const redoStack = [];
+  const MAX_HISTORY = 100;
+  
+  function snapshotState() {
+    return {
+      pieces: placedPieces.map(p => ({ ...p })),
+      bg: canvasBackgroundColor,
+    };
+  }
+  
+  function pushUndo() {
+    undoStack.push(snapshotState());
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack.length = 0;
+    updateUndoRedoButtons();
+  }
+  
+  function restoreState(state) {
+    document.querySelectorAll('.placed-piece').forEach(el => el.remove());
+    placedPieces = [];
+    selectedPieceIds = [];
+    state.pieces.forEach(p => {
+      placedPieces.push({ ...p });
+      createPieceElement({ ...p });
+    });
+    canvasBackgroundColor = state.bg;
+    canvas.style.backgroundColor = canvasBackgroundColor;
+    updateBOM();
+    updateTopbarControls();
+    updateUndoRedoButtons();
+  }
+  
+  function undo() { if (undoStack.length === 0) return; redoStack.push(snapshotState()); restoreState(undoStack.pop()); }
+  function redo() { if (redoStack.length === 0) return; undoStack.push(snapshotState()); restoreState(redoStack.pop()); }
+  
+  function updateUndoRedoButtons() {
+    document.getElementById('undoBtn').disabled = undoStack.length === 0;
+    document.getElementById('redoBtn').disabled = redoStack.length === 0;
+  }
+  
+  // === DOM refs ===
+  const canvas = document.getElementById('canvas');
+  const canvasWrapper = document.getElementById('canvasWrapper');
+  const bgMenu = document.getElementById('bgMenu');
+  
+  // === View transform ===
+  function applyViewTransform() {
+    canvas.style.transform = `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.zoom})`;
+  }
+  
+  function screenToWorld(clientX, clientY) {
+    const rect = canvasWrapper.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - viewTransform.x) / viewTransform.zoom,
+      y: (clientY - rect.top - viewTransform.y) / viewTransform.zoom,
+    };
+  }
+  
+  function zoom(factor, clientX, clientY) {
+    const rect = canvasWrapper.getBoundingClientRect();
+    const sx = clientX - rect.left;
+    const sy = clientY - rect.top;
+    const wx = (sx - viewTransform.x) / viewTransform.zoom;
+    const wy = (sy - viewTransform.y) / viewTransform.zoom;
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, viewTransform.zoom * factor));
+    viewTransform.x = sx - wx * newZoom;
+    viewTransform.y = sy - wy * newZoom;
+    viewTransform.zoom = newZoom;
+    applyViewTransform();
+  }
+  
+  // === Color filters ===
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function hexToRgb(hex) {
+    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 255, g: 255, b: 255 };
+  }
+  
+  function getOrCreateColorFilter(color) {
+    const safeId = color.replace('#', '');
+    const filterId = `tint-${safeId}`;
+    if (document.getElementById(filterId)) return filterId;
+    const defs = document.querySelector('#tintSvg defs');
+    const filter = document.createElementNS(SVG_NS, 'filter');
+    filter.id = filterId;
+    filter.setAttribute('color-interpolation-filters', 'sRGB');
+    const rgb = hexToRgb(color);
+    const r = (rgb.r / 255).toFixed(3), g = (rgb.g / 255).toFixed(3), b = (rgb.b / 255).toFixed(3);
+    const matrix = document.createElementNS(SVG_NS, 'feColorMatrix');
+    matrix.setAttribute('type', 'matrix');
+    matrix.setAttribute('values', `${r} 0 0 0 0 0 ${g} 0 0 0 0 0 ${b} 0 0 0 0 0 1 0`);
+    filter.appendChild(matrix);
+    defs.appendChild(filter);
+    return filterId;
+  }
+  
+  // === Preset color swatches ===
+  const presetRow = document.getElementById('presetRow');
+  COLORS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'mini-swatch';
+    btn.dataset.color = c.value || 'none';
+    btn.title = c.name;
+    if (c.value === null) {
+      btn.classList.add('no-color');
+    } else {
+      btn.style.backgroundColor = c.value;
+    }
+    btn.addEventListener('click', () => {
+      if (selectedPieceIds.length === 0) return;
+      pushUndo();
+      selectedPieceIds.forEach(id => applyColor(id, c.value));
+      if (c.value) addRecentColor(c.value);
+      updateTopbarControls();
+    });
+    presetRow.appendChild(btn);
+  });
+  
+  function renderRecentColors() {
+    const recent = getRecentColors();
+    const row = document.getElementById('recentRow');
+    const divider = document.getElementById('recentDivider');
+    row.innerHTML = '';
+    recent.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'mini-swatch';
+      btn.dataset.color = c;
+      btn.style.backgroundColor = c;
+      btn.title = c;
+      btn.addEventListener('click', () => {
+        if (selectedPieceIds.length === 0) return;
+        pushUndo();
+        selectedPieceIds.forEach(id => applyColor(id, c));
+        addRecentColor(c);
+        updateTopbarControls();
+      });
+      row.appendChild(btn);
+    });
+    divider.style.display = recent.length > 0 ? 'block' : 'none';
+  }
+  
+  renderRecentColors();
+  
+  // Custom color picker
+  const pickerBtn = document.getElementById('pickerBtn');
+  const customColorInput = document.getElementById('customColorInput');
+  
+  pickerBtn.addEventListener('click', () => {
+    if (selectedPieceIds.length === 0) {
+      showToast('Select a piece first');
+      return;
+    }
+    customColorInput.click();
+  });
+  
+  customColorInput.addEventListener('input', (e) => {
+    const color = e.target.value;
+    if (selectedPieceIds.length === 0) return;
+    pushUndo();
+    selectedPieceIds.forEach(id => applyColor(id, color));
+    addRecentColor(color);
+    updateTopbarControls();
+  });
+  
+  // === Scale slider ===
+  const scaleSlider = document.getElementById('scaleSlider');
+  const scaleReadout = document.getElementById('scaleReadout');
+  let scaleSliderDidPush = false;
+  
+  scaleSlider.addEventListener('input', (e) => {
+    const scale = parseInt(e.target.value);
+    scaleReadout.textContent = scale + '%';
+    if (selectedPieceIds.length === 0) return;
+    if (!scaleSliderDidPush) { pushUndo(); scaleSliderDidPush = true; }
+    selectedPieceIds.forEach(id => applyScale(id, scale / 100));
+  });
+  
+  scaleSlider.addEventListener('change', () => { scaleSliderDidPush = false; });
+  
+  // === Topbar controls update ===
+  function updateTopbarControls() {
+    const inlineScale = document.getElementById('inlineScale');
+    const inlineColors = document.getElementById('inlineColors');
+    
+    if (selectedPieceIds.length > 0) {
+      inlineScale.classList.remove('disabled');
+      inlineColors.classList.remove('disabled');
+      const firstPiece = placedPieces.find(p => p.id === selectedPieceIds[0]);
+      if (firstPiece) {
+        const pct = Math.round((firstPiece.scale || 1.0) * 100);
+        scaleSlider.value = pct;
+        scaleReadout.textContent = pct + '%';
+        // Active color swatch
+        document.querySelectorAll('.mini-swatch').forEach(s => {
+          const sColor = s.dataset.color === 'none' ? null : s.dataset.color;
+          s.classList.toggle('active', sColor === firstPiece.color);
+        });
+      }
+    } else {
+      inlineScale.classList.add('disabled');
+      inlineColors.classList.add('disabled');
+      document.querySelectorAll('.mini-swatch').forEach(s => s.classList.remove('active'));
+      scaleReadout.textContent = '100%';
+      scaleSlider.value = 100;
+    }
+  }
+  
+  // === Anchor utilities ===
+  function getPieceDisplaySize(piece) { return PIECE_DISPLAY_SIZE * (piece.scale || 1.0); }
+  
+  function getWorldAnchors(piece) {
+    const anchors = ANCHOR_POINTS[piece.type] || [];
+    const size = getPieceDisplaySize(piece);
+    const rot = (piece.rotation || 0) * Math.PI / 180;
+    return anchors.map(a => {
+      const lx = (a.x - 0.5) * size;
+      const ly = (a.y - 0.5) * size;
+      const rx = lx * Math.cos(rot) - ly * Math.sin(rot);
+      const ry = lx * Math.sin(rot) + ly * Math.cos(rot);
+      return { x: piece.x + rx, y: piece.y + ry };
+    });
+  }
+  
+  function findSnapOffset(piece, excludeId = null) {
+    const myAnchors = getWorldAnchors(piece);
+    let bestSnap = null;
+    let bestDist = SNAP_DISTANCE;
+    let snapAnchors = null;
+    for (const other of placedPieces) {
+      if (other.id === excludeId) continue;
+      const otherAnchors = getWorldAnchors(other);
+      for (const ma of myAnchors) {
+        for (const oa of otherAnchors) {
+          const dist = Math.hypot(ma.x - oa.x, ma.y - oa.y);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestSnap = { x: piece.x + (oa.x - ma.x), y: piece.y + (oa.y - ma.y) };
+            snapAnchors = { snappedAt: oa };
+          }
+        }
+      }
+    }
+    return { snap: bestSnap, snapAnchors };
+  }
+  
+  // === Sidebar drag ===
+  document.querySelectorAll('.piece-thumb').forEach(thumb => {
+    thumb.addEventListener('dragstart', (e) => {
+      draggingFromSidebar = thumb.dataset.piece;
+      e.dataTransfer.effectAllowed = 'copy';
+      const img = new Image();
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+      e.dataTransfer.setDragImage(img, 0, 0);
+    });
+    thumb.addEventListener('dragend', () => {
+      draggingFromSidebar = null;
+      removeGhost();
+      clearSnapIndicators();
+    });
+  });
+  
+  canvasWrapper.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (draggingFromSidebar) {
+      const w = screenToWorld(e.clientX, e.clientY);
+      showGhost(draggingFromSidebar, w.x, w.y, e.clientX, e.clientY);
+    }
+  });
+  
+  canvasWrapper.addEventListener('dragleave', (e) => {
+    if (e.target === canvasWrapper) { removeGhost(); clearSnapIndicators(); }
+  });
+  
+  canvasWrapper.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (draggingFromSidebar) {
+      const w = screenToWorld(e.clientX, e.clientY);
+      let x = w.x, y = w.y;
+      if (snapEnabled && placedPieces.length > 0) {
+        const tempPiece = { type: draggingFromSidebar, x, y, rotation: 0, scale: 1.0 };
+        const result = findSnapOffset(tempPiece);
+        if (result.snap) { x = result.snap.x; y = result.snap.y; }
+      }
+      pushUndo();
+      addPiece(draggingFromSidebar, x, y, 0);
+      removeGhost();
+      clearSnapIndicators();
+    }
+  });
+  
+  function showGhost(pieceType, worldX, worldY, screenX, screenY) {
+    let ghost = document.getElementById('ghost');
+    if (!ghost) {
+      ghost = document.createElement('div');
+      ghost.id = 'ghost';
+      ghost.className = 'ghost';
+      const img = document.createElement('img');
+      ghost.appendChild(img);
+      canvas.appendChild(ghost);
+    }
+    const img = ghost.querySelector('img');
+    if (img.dataset.piece !== pieceType) {
+      img.src = pieceType + '.png';
+      img.dataset.piece = pieceType;
+      img.style.width = PIECE_DISPLAY_SIZE + 'px';
+      img.style.height = PIECE_DISPLAY_SIZE + 'px';
+    }
+    
+    let gx = worldX, gy = worldY;
+    clearSnapIndicators();
+    if (snapEnabled && placedPieces.length > 0) {
+      const tempPiece = { type: pieceType, x: worldX, y: worldY, rotation: 0, scale: 1.0 };
+      const result = findSnapOffset(tempPiece);
+      if (result.snap) {
+        gx = result.snap.x; gy = result.snap.y;
+        if (result.snapAnchors) showSnapIndicator(result.snapAnchors.snappedAt.x, result.snapAnchors.snappedAt.y);
+      }
+    }
+    ghost.style.left = gx + 'px';
+    ghost.style.top = gy + 'px';
+    ghost.style.transform = 'translate(-50%, -50%)';
+  }
+  
+  function removeGhost() {
+    const ghost = document.getElementById('ghost');
+    if (ghost) ghost.remove();
+  }
+  
+  function showSnapIndicator(worldX, worldY) {
+    clearSnapIndicators();
+    const dot = document.createElement('div');
+    dot.className = 'snap-indicator';
+    dot.style.left = worldX + 'px';
+    dot.style.top = worldY + 'px';
+    canvas.appendChild(dot);
+    activeSnapIndicators.push(dot);
+  }
+  
+  function clearSnapIndicators() {
+    activeSnapIndicators.forEach(d => d.remove());
+    activeSnapIndicators = [];
+  }
+  
+  // === Add/Create Piece ===
+  function addPiece(pieceType, x, y, rotation) {
+    const id = ++pieceIdCounter;
+    const piece = { id, type: pieceType, x, y, rotation: rotation || 0, color: null, scale: 1.0 };
+    placedPieces.push(piece);
+    createPieceElement(piece);
+    updateBOM();
+    selectPieces([id]);
+  }
+  
+  function createPieceElement(piece) {
+    const size = getPieceDisplaySize(piece);
+    const el = document.createElement('div');
+    el.className = 'placed-piece';
+    el.dataset.id = piece.id;
+    el.style.left = piece.x + 'px';
+    el.style.top = piece.y + 'px';
+    el.style.transform = `translate(-50%, -50%) rotate(${piece.rotation}deg)`;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    const img = document.createElement('img');
+    img.src = piece.type + '.png';
+    img.style.width = size + 'px';
+    img.style.height = size + 'px';
+    el.appendChild(img);
+    canvas.appendChild(el);
+    setupPieceDrag(el, piece);
+    setupPieceContext(el, piece);
+    if (piece.color) applyColor(piece.id, piece.color);
+  }
+  
+  // === Piece drag (single OR group) ===
+  function setupPieceDrag(el, piece) {
+    let startX = 0, startY = 0, initialPositions = {};
+    let isDragging = false;
+    let didPush = false;
+    
+    el.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      hideBgMenu();
+      
+      // Selection logic
+      if (e.shiftKey) {
+        // Toggle in selection
+        if (selectedPieceIds.includes(piece.id)) {
+          selectPieces(selectedPieceIds.filter(id => id !== piece.id));
+          return; // no drag
+        } else {
+          selectPieces([...selectedPieceIds, piece.id]);
+        }
+      } else if (!selectedPieceIds.includes(piece.id)) {
+        selectPieces([piece.id]);
+      }
+      
+      // Save initial positions of all selected pieces
+      initialPositions = {};
+      selectedPieceIds.forEach(id => {
+        const p = placedPieces.find(pp => pp.id === id);
+        if (p) initialPositions[id] = { x: p.x, y: p.y };
+      });
+      
+      startX = e.clientX;
+      startY = e.clientY;
+      isDragging = true;
+      didPush = false;
+      el.classList.add('dragging');
+      
+      const moveHandler = (e) => {
+        if (!isDragging) return;
+        if (!didPush) { pushUndo(); didPush = true; }
+        const dxWorld = (e.clientX - startX) / viewTransform.zoom;
+        const dyWorld = (e.clientY - startY) / viewTransform.zoom;
+        
+        // First pass: move all selected pieces by raw delta
+        selectedPieceIds.forEach(id => {
+          const p = placedPieces.find(pp => pp.id === id);
+          const init = initialPositions[id];
+          if (!p || !init) return;
+          p.x = init.x + dxWorld;
+          p.y = init.y + dyWorld;
+        });
+        
+        // Snap (only when single piece selected for cleaner behavior)
+        clearSnapIndicators();
+        let snapDx = 0, snapDy = 0;
+        if (selectedPieceIds.length === 1 && snapEnabled) {
+          const result = findSnapOffset(piece, piece.id);
+          if (result.snap) {
+            snapDx = result.snap.x - piece.x;
+            snapDy = result.snap.y - piece.y;
+            el.classList.add('snapping');
+            if (result.snapAnchors) showSnapIndicator(result.snapAnchors.snappedAt.x, result.snapAnchors.snappedAt.y);
+          } else {
+            el.classList.remove('snapping');
+          }
+        } else {
+          el.classList.remove('snapping');
+        }
+        
+        // Apply snap correction to all selected (keeps group offsets intact)
+        selectedPieceIds.forEach(id => {
+          const p = placedPieces.find(pp => pp.id === id);
+          if (!p) return;
+          p.x += snapDx;
+          p.y += snapDy;
+          const pEl = document.querySelector(`.placed-piece[data-id="${id}"]`);
+          if (pEl) {
+            pEl.style.left = p.x + 'px';
+            pEl.style.top = p.y + 'px';
+          }
+        });
+      };
+      
+      const upHandler = () => {
+        isDragging = false;
+        el.classList.remove('dragging');
+        el.classList.remove('snapping');
+        clearSnapIndicators();
+        document.removeEventListener('mousemove', moveHandler);
+        document.removeEventListener('mouseup', upHandler);
+      };
+      
+      document.addEventListener('mousemove', moveHandler);
+      document.addEventListener('mouseup', upHandler);
+    });
+  }
+  
+  function setupPieceContext(el, piece) {
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selectedPieceIds.includes(piece.id)) selectPieces([piece.id]);
+    });
+  }
+  
+  function applyColor(pieceId, color) {
+    const piece = placedPieces.find(p => p.id === pieceId);
+    if (!piece) return;
+    piece.color = color;
+    const el = document.querySelector(`.placed-piece[data-id="${pieceId}"]`);
+    if (!el) return;
+    const img = el.querySelector('img');
+    if (!img) return;
+    img.style.filter = color === null ? '' : `url(#${getOrCreateColorFilter(color)})`;
+    updateBOM();
+  }
+  
+  function applyScale(pieceId, scale) {
+    const piece = placedPieces.find(p => p.id === pieceId);
+    if (!piece) return;
+    piece.scale = scale;
+    const el = document.querySelector(`.placed-piece[data-id="${pieceId}"]`);
+    if (!el) return;
+    const size = getPieceDisplaySize(piece);
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    const img = el.querySelector('img');
+    if (img) { img.style.width = size + 'px'; img.style.height = size + 'px'; }
+    updateBOM();
+  }
+  
+  function selectPieces(ids) {
+    selectedPieceIds = [...ids];
+    document.querySelectorAll('.placed-piece').forEach(el => {
+      el.classList.toggle('selected', selectedPieceIds.includes(parseInt(el.dataset.id)));
+    });
+    updateTopbarControls();
+  }
+  
+  // === Canvas-level interactions: pan, marquee, deselect ===
+  let isPanning = false, panStart = null;
+  let isMarqueeing = false, marqueeStart = null, marqueeEl = null;
+  
+  canvasWrapper.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    // Only when clicking on empty canvas/wrapper area (not on a piece)
+    if (e.target !== canvasWrapper && e.target !== canvas) return;
+    
+    hideBgMenu();
+    
+    if (e.shiftKey) {
+      // Start marquee
+      isMarqueeing = true;
+      marqueeStart = { x: e.clientX, y: e.clientY };
+      marqueeEl = document.createElement('div');
+      marqueeEl.className = 'marquee-rect';
+      canvasWrapper.appendChild(marqueeEl);
+      canvasWrapper.classList.add('marqueeing');
+    } else {
+      // Start pan
+      isPanning = true;
+      panStart = { x: e.clientX, y: e.clientY, tx: viewTransform.x, ty: viewTransform.y };
+      canvasWrapper.classList.add('panning');
+      // Deselect on plain click (will commit on mouseup if no movement)
+    }
+  });
+  
+  let panMoved = false;
+  
+  window.addEventListener('mousemove', (e) => {
+    if (isPanning) {
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) panMoved = true;
+      viewTransform.x = panStart.tx + dx;
+      viewTransform.y = panStart.ty + dy;
+      applyViewTransform();
+    } else if (isMarqueeing && marqueeEl) {
+      const wrapperRect = canvasWrapper.getBoundingClientRect();
+      const x1 = marqueeStart.x - wrapperRect.left;
+      const y1 = marqueeStart.y - wrapperRect.top;
+      const x2 = e.clientX - wrapperRect.left;
+      const y2 = e.clientY - wrapperRect.top;
+      marqueeEl.style.left = Math.min(x1, x2) + 'px';
+      marqueeEl.style.top = Math.min(y1, y2) + 'px';
+      marqueeEl.style.width = Math.abs(x2 - x1) + 'px';
+      marqueeEl.style.height = Math.abs(y2 - y1) + 'px';
+    }
+  });
+  
+  window.addEventListener('mouseup', (e) => {
+    if (isPanning) {
+      // If we didn't move (just clicked), deselect everything
+      if (!panMoved) {
+        selectPieces([]);
+      }
+      panMoved = false;
+      isPanning = false;
+      canvasWrapper.classList.remove('panning');
+    }
+    if (isMarqueeing) {
+      // Compute selection
+      const w1 = screenToWorld(Math.min(marqueeStart.x, e.clientX), Math.min(marqueeStart.y, e.clientY));
+      const w2 = screenToWorld(Math.max(marqueeStart.x, e.clientX), Math.max(marqueeStart.y, e.clientY));
+      const newSel = placedPieces
+        .filter(p => p.x >= w1.x && p.x <= w2.x && p.y >= w1.y && p.y <= w2.y)
+        .map(p => p.id);
+      selectPieces(newSel);
+      
+      if (marqueeEl) marqueeEl.remove();
+      marqueeEl = null;
+      isMarqueeing = false;
+      canvasWrapper.classList.remove('marqueeing');
+    }
+  });
+  
+  // Zoom on wheel
+  canvasWrapper.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    zoom(factor, e.clientX, e.clientY);
+  }, { passive: false });
+  
+  // Right-click on canvas (empty area) -> bg color menu
+  canvasWrapper.addEventListener('contextmenu', (e) => {
+    if (e.target !== canvasWrapper && e.target !== canvas) return;
+    e.preventDefault();
+    showBgMenu(e.clientX, e.clientY);
+  });
+  
+  // === Keyboard ===
+  let lastArrowTime = 0;
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); return; }
+    if (ctrl && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+    
+    if (selectedPieceIds.length === 0) return;
+    
+    // Arrow keys nudge
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+      const delta = e.shiftKey ? 10 : 1;
+      const now = Date.now();
+      if (now - lastArrowTime > 500) pushUndo();
+      lastArrowTime = now;
+      let dx = 0, dy = 0;
+      if (e.key === 'ArrowLeft') dx = -delta;
+      if (e.key === 'ArrowRight') dx = delta;
+      if (e.key === 'ArrowUp') dy = -delta;
+      if (e.key === 'ArrowDown') dy = delta;
+      selectedPieceIds.forEach(id => {
+        const p = placedPieces.find(pp => pp.id === id);
+        if (!p) return;
+        p.x += dx;
+        p.y += dy;
+        const el = document.querySelector(`.placed-piece[data-id="${id}"]`);
+        if (el) {
+          el.style.left = p.x + 'px';
+          el.style.top = p.y + 'px';
+        }
+      });
+      return;
+    }
+    
+    if (e.key === 'r' || e.key === 'R') {
+      pushUndo();
+      selectedPieceIds.forEach(id => {
+        const p = placedPieces.find(pp => pp.id === id);
+        if (!p) return;
+        p.rotation = (p.rotation + ROTATION_STEP) % 360;
+        const el = document.querySelector(`.placed-piece[data-id="${id}"]`);
+        if (el) el.style.transform = `translate(-50%, -50%) rotate(${p.rotation}deg)`;
+      });
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      pushUndo();
+      const toRemove = new Set(selectedPieceIds);
+      placedPieces = placedPieces.filter(p => !toRemove.has(p.id));
+      toRemove.forEach(id => {
+        const el = document.querySelector(`.placed-piece[data-id="${id}"]`);
+        if (el) el.remove();
+      });
+      selectPieces([]);
+      updateBOM();
+    } else if (e.key === 'Escape') {
+      selectPieces([]);
+      hideBgMenu();
+    }
+  });
+  
+  // === Toolbar handlers ===
+  document.getElementById('undoBtn').addEventListener('click', undo);
+  document.getElementById('redoBtn').addEventListener('click', redo);
+  
+  document.getElementById('rotateBtn').addEventListener('click', () => {
+    if (selectedPieceIds.length === 0) { showToast('Select a piece first'); return; }
+    pushUndo();
+    selectedPieceIds.forEach(id => {
+      const p = placedPieces.find(pp => pp.id === id);
+      if (!p) return;
+      p.rotation = (p.rotation + ROTATION_STEP) % 360;
+      const el = document.querySelector(`.placed-piece[data-id="${id}"]`);
+      if (el) el.style.transform = `translate(-50%, -50%) rotate(${p.rotation}deg)`;
+    });
+  });
+  
+  document.getElementById('snapToggle').addEventListener('click', (e) => {
+    snapEnabled = !snapEnabled;
+    e.currentTarget.classList.toggle('active', snapEnabled);
+    showToast(`Snap ${snapEnabled ? 'enabled' : 'disabled'}`);
+  });
+  
+  document.getElementById('gridToggle').addEventListener('click', (e) => {
+    gridVisible = !gridVisible;
+    canvas.classList.toggle('grid-on', gridVisible);
+    e.currentTarget.classList.toggle('active', gridVisible);
+  });
+  
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (placedPieces.length === 0) return;
+    if (confirm('Clear all pieces?')) {
+      pushUndo();
+      placedPieces = [];
+      document.querySelectorAll('.placed-piece').forEach(el => el.remove());
+      selectPieces([]);
+      updateBOM();
+      showToast('Canvas cleared');
+    }
+  });
+  
+  // === Sidebar toggle ===
+  const sidebarEl = document.getElementById('sidebar');
+  const sidebarToggleBtn = document.getElementById('sidebarToggle');
+  
+  function updateSidebarToggle() {
+    sidebarEl.classList.toggle('collapsed', sidebarCollapsed);
+    sidebarToggleBtn.textContent = sidebarCollapsed ? '›' : '‹';
+    sidebarToggleBtn.classList.toggle('collapsed', sidebarCollapsed);
+  }
+  sidebarToggleBtn.addEventListener('click', () => {
+    sidebarCollapsed = !sidebarCollapsed;
+    updateSidebarToggle();
+  });
+  updateSidebarToggle();
+  
+  // === BOM expand (only via arrow button) ===
+  const bomPanel = document.getElementById('bomPanel');
+  const bomExpandBtn = document.getElementById('bomExpandBtn');
+  
+  bomExpandBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    bomExpanded = !bomExpanded;
+    bomPanel.classList.toggle('expanded', bomExpanded);
+    bomExpandBtn.textContent = bomExpanded ? '⤡' : '⤢';
+    bomExpandBtn.title = bomExpanded ? 'Collapse' : 'Expand';
+  });
+  
+  // === Toast ===
+  const toast = document.getElementById('toast');
+  let toastTimeout = null;
+  function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+  
+  // ============================================
+  // === Screenshot (manual canvas rendering) ==
+  // ============================================
+  
+  function drawTriangularGrid(ctx, x0w, y0w, x1w, y1w) {
+    const w = 80;
+    const h = w * Math.sqrt(3) / 2;
+    ctx.strokeStyle = 'rgba(160, 168, 184, 0.35)';
+    ctx.lineWidth = 0.6;
+    
+    const x0 = Math.floor(x0w / w) * w - w;
+    const y0 = Math.floor(y0w / h) * h - h;
+    const x1 = Math.ceil(x1w / w) * w + w;
+    const y1 = Math.ceil(y1w / h) * h + h;
+    
+    for (let y = y0; y < y1; y += h) {
+      for (let x = x0; x < x1; x += w) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + w/2, y + h);
+        ctx.lineTo(x + w, y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x + w/2, y);
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + w/2, y);
+        ctx.lineTo(x + w/2, y + h);
+        ctx.stroke();
+      }
+    }
+  }
+  
+  function drawPieceOnCanvas(ctx, piece) {
+    const img = loadedImages[piece.type];
+    if (!img) return;
+    const size = PIECE_DISPLAY_SIZE * (piece.scale || 1);
+    const half = size / 2;
+    
+    ctx.save();
+    ctx.translate(piece.x, piece.y);
+    ctx.rotate((piece.rotation || 0) * Math.PI / 180);
+    
+    if (!piece.color) {
+      ctx.drawImage(img, -half, -half, size, size);
+    } else {
+      // Tint via offscreen canvas
+      const off = document.createElement('canvas');
+      off.width = size;
+      off.height = size;
+      const octx = off.getContext('2d');
+      octx.drawImage(img, 0, 0, size, size);
+      octx.globalCompositeOperation = 'multiply';
+      octx.fillStyle = piece.color;
+      octx.fillRect(0, 0, size, size);
+      octx.globalCompositeOperation = 'destination-in';
+      octx.drawImage(img, 0, 0, size, size);
+      ctx.drawImage(off, -half, -half);
+    }
+    
+    ctx.restore();
+  }
+  
+  async function takeScreenshot() {
+    showToast('Capturing...');
+    
+    // Ensure all images are loaded
+    await Promise.all(PIECE_TYPES.map(t => new Promise(resolve => {
+      const img = loadedImages[t];
+      if (img.complete && img.naturalWidth > 0) resolve();
+      else { img.onload = resolve; img.onerror = resolve; }
+    })));
+    
+    const w = canvasWrapper.clientWidth;
+    const h = canvasWrapper.clientHeight;
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const ctx = out.getContext('2d');
+    
+    // Background
+    ctx.fillStyle = canvasBackgroundColor;
+    ctx.fillRect(0, 0, w, h);
+    
+    // Apply view transform
+    ctx.save();
+    ctx.translate(viewTransform.x, viewTransform.y);
+    ctx.scale(viewTransform.zoom, viewTransform.zoom);
+    
+    // Compute visible world bounds
+    const tl = screenToWorld(0, 0);
+    const br = screenToWorld(w, h);
+    
+    // Grid
+    if (gridVisible) drawTriangularGrid(ctx, tl.x, tl.y, br.x, br.y);
+    
+    // Pieces
+    placedPieces.forEach(p => drawPieceOnCanvas(ctx, p));
+    
+    ctx.restore();
+    
+    out.toBlob(blob => {
+      if (!blob) { showToast('Capture failed'); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `iso-panel-${new Date().toISOString().slice(0,19).replace(/[:.]/g,'-')}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Screenshot saved');
+    }, 'image/jpeg', 0.95);
+  }
+  
+  document.getElementById('screenshotBtn').addEventListener('click', takeScreenshot);
+  
+  // === Export BOM ===
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    if (placedPieces.length === 0) { showToast('Add pieces before exporting'); return; }
+    const variations = buildVariationMap();
+    let text = 'ISO Wall Panel - Pieces Needed\n';
+    text += `Generated: ${new Date().toLocaleString()}\n`;
+    text += `Total pieces: ${placedPieces.length}\n\n`;
+    
+    PIECE_TYPES.forEach(type => {
+      const variants = variations[type];
+      if (!variants || Object.keys(variants).length === 0) return;
+      const label = PIECE_LABELS[type] || type;
+      const totalForType = Object.values(variants).reduce((a, b) => a + b, 0);
+      text += `${type} - ${label} (${totalForType} total)\n`;
+      Object.entries(variants).forEach(([key, count]) => {
+        const [scaleStr, colorVal] = key.split('|');
+        const colorLabel = colorVal === 'null' ? 'no color' : colorVal;
+        text += `  • ${scaleStr}% scale, ${colorLabel}: ${count}\n`;
+      });
+      text += '\n';
+    });
+    
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'iso-panel-pieces.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Pieces list exported');
+  });
+  
+  function buildVariationMap() {
+    const variations = {};
+    PIECE_TYPES.forEach(t => { variations[t] = {}; });
+    placedPieces.forEach(p => {
+      const scalePct = Math.round((p.scale || 1.0) * 100);
+      const colorVal = p.color === null ? 'null' : p.color;
+      const key = `${scalePct}|${colorVal}`;
+      if (!variations[p.type]) variations[p.type] = {};
+      variations[p.type][key] = (variations[p.type][key] || 0) + 1;
+    });
+    return variations;
+  }
+  
+  function colorName(hex) {
+    const preset = COLORS.find(c => c.value === hex);
+    if (preset) return preset.name;
+    return hex;
+  }
+  
+  function updateBOM() {
+    document.getElementById('pieceCount').textContent = placedPieces.length;
+    document.getElementById('bomCountPill').textContent = placedPieces.length;
+    
+    const bomList = document.getElementById('bomList');
+    if (placedPieces.length === 0) {
+      bomList.innerHTML = '<div class="empty-state">Drop pieces to start designing</div>';
+      return;
+    }
+    
+    const variations = buildVariationMap();
+    let html = '';
+    PIECE_TYPES.forEach(type => {
+      const variants = variations[type];
+      if (!variants || Object.keys(variants).length === 0) return;
+      const totalForType = Object.values(variants).reduce((a, b) => a + b, 0);
+      const label = PIECE_LABELS[type] || type;
+      html += `<div class="bom-piece-group">`;
+      html += `<div class="bom-piece-header"><span>${type} — ${label}</span><span>${totalForType}</span></div>`;
+      const sortedKeys = Object.keys(variants).sort((a, b) => {
+        const [sa] = a.split('|').map(Number);
+        const [sb] = b.split('|').map(Number);
+        return sb - sa;
+      });
+      sortedKeys.forEach(key => {
+        const count = variants[key];
+        const [scaleStr, colorVal] = key.split('|');
+        const lbl = colorVal === 'null' ? 'gray' : colorName(colorVal);
+        const dotStyle = colorVal === 'null' ? 'background: #888' : `background: ${colorVal}`;
+        html += `<div class="bom-variation"><span class="bom-variation-label"><span class="color-dot" style="${dotStyle}"></span>${scaleStr}% · ${lbl}</span><span class="bom-count">${count}</span></div>`;
+      });
+      html += `</div>`;
+    });
+    html += `<div class="bom-total"><span>Total Pieces</span><span>${placedPieces.length}</span></div>`;
+    bomList.innerHTML = html;
+  }
+  
+  // ============================================
+  // === Background color menu =================
+  // ============================================
+  
+  const bgPresetsEl = document.getElementById('bgPresets');
+  BG_PRESETS.forEach(color => {
+    const btn = document.createElement('button');
+    btn.className = 'bg-preset';
+    btn.style.backgroundColor = color;
+    btn.dataset.color = color;
+    btn.addEventListener('click', () => {
+      setBackgroundColor(color);
+      updateBgMenuActive();
+    });
+    bgPresetsEl.appendChild(btn);
+  });
+  
+  document.getElementById('bgCustomInput').addEventListener('input', (e) => {
+    setBackgroundColor(e.target.value);
+    updateBgMenuActive();
+  });
+  
+  function setBackgroundColor(color) {
+    pushUndo();
+    canvasBackgroundColor = color;
+    canvas.style.backgroundColor = color;
+  }
+  
+  function updateBgMenuActive() {
+    document.querySelectorAll('.bg-preset').forEach(b => {
+      b.classList.toggle('active', b.dataset.color === canvasBackgroundColor);
+    });
+  }
+  
+  function showBgMenu(clientX, clientY) {
+    const wrapperRect = canvasWrapper.getBoundingClientRect();
+    bgMenu.classList.add('visible');
+    bgMenu.style.left = (clientX - wrapperRect.left) + 'px';
+    bgMenu.style.top = (clientY - wrapperRect.top) + 'px';
+    document.getElementById('bgCustomInput').value = canvasBackgroundColor;
+    updateBgMenuActive();
+    
+    // Constrain to viewport
+    setTimeout(() => {
+      const r = bgMenu.getBoundingClientRect();
+      if (r.right > window.innerWidth - 10) bgMenu.style.left = (window.innerWidth - r.width - 10 - wrapperRect.left) + 'px';
+      if (r.bottom > window.innerHeight - 10) bgMenu.style.top = (window.innerHeight - r.height - 10 - wrapperRect.top) + 'px';
+    }, 0);
+  }
+  
+  function hideBgMenu() {
+    bgMenu.classList.remove('visible');
+  }
+  
+  document.addEventListener('click', (e) => {
+    if (!bgMenu.contains(e.target)) hideBgMenu();
+  });
+  
+  // Init bg color
+  canvas.style.backgroundColor = canvasBackgroundColor;
+  
+  // ============================================
+  // === ANCHOR CALIBRATION ===================
+  // ============================================
+  
+  const calibOverlay = document.getElementById('calibOverlay');
+  const calibTabsContainer = document.getElementById('calibTabs');
+  const calibCanvas = document.getElementById('calibCanvas');
+  const calibImage = document.getElementById('calibImage');
+  const calibInfo = document.getElementById('calibInfo');
+  
+  PIECE_TYPES.forEach(type => {
+    const tab = document.createElement('button');
+    tab.className = 'calib-tab';
+    tab.dataset.piece = type;
+    tab.textContent = type;
+    tab.addEventListener('click', () => selectCalibPiece(type));
+    calibTabsContainer.appendChild(tab);
+  });
+  
+  function updateCalibTabs() {
+    document.querySelectorAll('.calib-tab').forEach(tab => {
+      const type = tab.dataset.piece;
+      tab.classList.toggle('active', type === calibCurrentPiece);
+      tab.classList.toggle('has-data', (ANCHOR_POINTS[type] || []).length > 0);
+    });
+  }
+  
+  function selectCalibPiece(type) {
+    calibCurrentPiece = type;
+    calibImage.src = type + '.png';
+    calibImage.style.width = CALIB_IMAGE_SIZE + 'px';
+    calibImage.style.height = CALIB_IMAGE_SIZE + 'px';
+    calibCanvas.style.width = CALIB_IMAGE_SIZE + 'px';
+    calibCanvas.style.height = CALIB_IMAGE_SIZE + 'px';
+    updateCalibTabs();
+    renderCalibAnchors();
+  }
+  
+  function renderCalibAnchors() {
+    calibCanvas.querySelectorAll('.calib-anchor').forEach(el => el.remove());
+    const anchors = ANCHOR_POINTS[calibCurrentPiece] || [];
+    anchors.forEach((a, idx) => {
+      const dot = document.createElement('div');
+      dot.className = 'calib-anchor';
+      dot.style.left = (a.x * CALIB_IMAGE_SIZE) + 'px';
+      dot.style.top = (a.y * CALIB_IMAGE_SIZE) + 'px';
+      dot.title = `Anchor ${idx + 1} - Click to remove`;
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ANCHOR_POINTS[calibCurrentPiece].splice(idx, 1);
+        saveAnchors();
+        renderCalibAnchors();
+        updateCalibTabs();
+      });
+      calibCanvas.appendChild(dot);
+    });
+    const count = (ANCHOR_POINTS[calibCurrentPiece] || []).length;
+    calibInfo.textContent = `${calibCurrentPiece}: ${count} anchor${count === 1 ? '' : 's'} placed`;
+  }
+  
+  calibCanvas.addEventListener('click', (e) => {
+    if (e.target.classList.contains('calib-anchor')) return;
+    const rect = calibCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    if (!ANCHOR_POINTS[calibCurrentPiece]) ANCHOR_POINTS[calibCurrentPiece] = [];
+    ANCHOR_POINTS[calibCurrentPiece].push({ x, y });
+    saveAnchors();
+    renderCalibAnchors();
+    updateCalibTabs();
+  });
+  
+  document.getElementById('calibrateBtn').addEventListener('click', () => {
+    calibOverlay.classList.add('active');
+    selectCalibPiece(PIECE_TYPES[0]);
+  });
+  
+  document.getElementById('calibDoneBtn').addEventListener('click', () => {
+    calibOverlay.classList.remove('active');
+    saveAnchors();
+  });
+  
+  document.getElementById('calibClearBtn').addEventListener('click', () => {
+    if (!calibCurrentPiece) return;
+    if (confirm(`Clear all anchors on ${calibCurrentPiece}?`)) {
+      ANCHOR_POINTS[calibCurrentPiece] = [];
+      saveAnchors();
+      renderCalibAnchors();
+      updateCalibTabs();
+    }
+  });
+  
+  document.getElementById('calibExportBtn').addEventListener('click', () => {
+    let code = 'const ANCHOR_POINTS = {\n';
+    PIECE_TYPES.forEach(type => {
+      code += `  '${type}': [\n`;
+      (ANCHOR_POINTS[type] || []).forEach(a => {
+        code += `    { x: ${a.x.toFixed(4)}, y: ${a.y.toFixed(4)} },\n`;
+      });
+      code += `  ],\n`;
+    });
+    code += '};';
+    navigator.clipboard.writeText(code).then(() => showToast('Anchors copied')).catch(() => prompt('Copy anchors:', code));
+  });
+  
+  // Initial state
+  updateUndoRedoButtons();
+  updateTopbarControls();
+</script>
+</body>
+</html>
