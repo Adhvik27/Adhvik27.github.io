@@ -15,7 +15,6 @@
     --text-dim: #8a92a0;
     --text-muted: #5a6270;
     --accent: #d4a574;
-    --accent-dim: #b8895c;
     --success: #5fb878;
     --danger: #d96d6d;
   }
@@ -27,9 +26,9 @@
     background: var(--bg);
     color: var(--text);
   }
-  
+
   .app { display: flex; height: 100vh; position: relative; }
-  
+
   /* ============ Sidebar ============ */
   .sidebar {
     width: 240px;
@@ -44,12 +43,10 @@
     flex-shrink: 0;
     z-index: 10;
   }
-  
   .sidebar.collapsed {
     transform: translateX(-240px);
     margin-right: -240px;
   }
-  
   .sidebar-brand {
     display: flex;
     align-items: center;
@@ -57,7 +54,6 @@
     padding-bottom: 14px;
     border-bottom: 1px solid var(--border);
   }
-  
   .brand-icon {
     width: 40px;
     height: 40px;
@@ -65,10 +61,8 @@
     flex-shrink: 0;
     filter: brightness(0) invert(0.72) sepia(0.6) saturate(3.5) hue-rotate(-15deg);
   }
-  
   .brand-text { font-size: 15px; font-weight: 600; letter-spacing: 0.3px; }
   .brand-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
-  
   .sidebar h2 {
     font-size: 11px;
     text-transform: uppercase;
@@ -76,9 +70,7 @@
     color: var(--text-dim);
     font-weight: 600;
   }
-  
   .piece-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  
   .piece-thumb {
     width: 100%;
     height: 130px;
@@ -95,15 +87,12 @@
     position: relative;
     overflow: hidden;
   }
-  
   .piece-thumb:hover {
     border-color: var(--accent);
     background: #2f3540;
     transform: translateY(-1px);
   }
-  
   .piece-thumb:active { cursor: grabbing; }
-  
   .piece-thumb img {
     max-width: 100%;
     max-height: 100%;
@@ -112,9 +101,7 @@
     -webkit-user-drag: none;
     filter: invert(0.85);
   }
-  
   .piece-label { font-size: 12px; color: var(--text-dim); text-align: center; }
-  
   .sidebar-toggle {
     position: absolute;
     top: 50%;
@@ -135,22 +122,28 @@
     font-size: 14px;
     left: 240px;
   }
-  
   .sidebar-toggle.collapsed { left: 0; }
   .sidebar-toggle:hover { background: var(--bg-elev); color: var(--accent); }
-  
-  /* ============ Canvas Area ============ */
+
+  /* ============ Canvas Wrapper (now holds bg color & grid) ============ */
   .canvas-wrapper {
     flex: 1;
     position: relative;
-    background: var(--bg-canvas);
     overflow: hidden;
     cursor: default;
+    background-color: var(--bg-canvas);
   }
-  
+  /* Grid is on the wrapper so it fills the full visible area (not just transformed canvas) */
+  .canvas-wrapper.grid-on {
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='69.28' viewBox='0 0 80 69.28'%3E%3Cg fill='none' stroke='%23a0a8b8' stroke-width='0.6' opacity='0.35'%3E%3Cpath d='M0 0 L40 69.28 L80 0 Z'/%3E%3Cpath d='M0 69.28 L40 0 L80 69.28 Z'/%3E%3Cpath d='M40 0 L40 69.28'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 80px 69.28px;
+    background-position: 0 0;
+    background-repeat: repeat;
+  }
   .canvas-wrapper.panning { cursor: grabbing; }
   .canvas-wrapper.marqueeing { cursor: crosshair; }
-  
+
+  /* Inner canvas: only holds transformed world content. No own background. */
   .canvas {
     position: absolute;
     top: 0;
@@ -158,41 +151,38 @@
     width: 100%;
     height: 100%;
     transform-origin: 0 0;
+    pointer-events: none; /* let wrapper handle empty-space clicks */
   }
-  
-  .canvas.grid-on {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='69.28' viewBox='0 0 80 69.28'%3E%3Cg fill='none' stroke='%23a0a8b8' stroke-width='0.6' opacity='0.35'%3E%3Cpath d='M0 0 L40 69.28 L80 0 Z'/%3E%3Cpath d='M0 69.28 L40 0 L80 69.28 Z'/%3E%3Cpath d='M40 0 L40 69.28'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: 80px 69.28px;
+  .canvas > * { pointer-events: auto; }
+
+  /* Background image lives inside .canvas so it pans/zooms with the world */
+  .bg-image {
+    position: absolute;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
   }
-  
+  .bg-image img {
+    display: block;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
   .placed-piece {
     position: absolute;
     cursor: move;
     user-select: none;
     transform-origin: center center;
-    transition: filter 0.1s;
+    z-index: 1;
   }
-  
   .placed-piece img {
     display: block;
     pointer-events: none;
     -webkit-user-drag: none;
-    transition: filter 0.2s;
+    transition: filter 0.12s;
   }
-  
-  .placed-piece.selected {
-    outline: 2px dashed var(--accent);
-    outline-offset: 4px;
-    border-radius: 4px;
-  }
-  
-  .placed-piece.dragging { opacity: 0.85; z-index: 1000; }
-  .placed-piece.snapping {
-    outline: 2px solid var(--success);
-    outline-offset: 4px;
-    border-radius: 4px;
-  }
-  
+  .placed-piece.dragging { opacity: 0.92; z-index: 1000; }
+
   /* ============ Top Bar ============ */
   .topbar {
     position: absolute;
@@ -213,15 +203,12 @@
     overflow-y: hidden;
     scrollbar-width: thin;
   }
-  
   .topbar::-webkit-scrollbar { height: 4px; }
   .topbar::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
   .topbar::-webkit-scrollbar-track { background: transparent; }
-  
   .topbar-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
   .topbar-divider { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
   .topbar-spacer { flex: 1; min-width: 8px; }
-  
   .topbar-info {
     font-size: 12px;
     color: var(--text-dim);
@@ -230,7 +217,7 @@
     flex-shrink: 0;
   }
   .topbar-info strong { color: var(--accent); font-weight: 600; }
-  
+
   .btn {
     background: var(--bg-elev);
     border: 1px solid var(--border);
@@ -247,21 +234,16 @@
     font-family: inherit;
     flex-shrink: 0;
   }
-  
   .btn:hover:not(:disabled) { background: #353c4a; border-color: var(--border-light); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn.icon-only { padding: 7px 9px; font-size: 14px; }
-  
   .btn-primary { background: var(--accent); color: #1a1d24; border-color: var(--accent); font-weight: 600; }
   .btn-primary:hover { background: #e0b285; border-color: #e0b285; }
-  
   .btn-success { background: var(--success); color: #1a1d24; border-color: var(--success); font-weight: 600; }
   .btn-success:hover { background: #6fc888; border-color: #6fc888; }
-  
   .btn-danger:hover { background: rgba(217, 109, 109, 0.15); border-color: var(--danger); color: var(--danger); }
   .btn-toggle.active { background: var(--accent); color: #1a1d24; border-color: var(--accent); }
-  
-  /* Inline scale */
+
   .inline-scale {
     display: flex;
     align-items: center;
@@ -273,16 +255,13 @@
     height: 32px;
     flex-shrink: 0;
   }
-  
   .inline-scale.disabled { opacity: 0.45; pointer-events: none; }
-  
   .inline-scale label {
     font-size: 10px;
     color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 1px;
   }
-  
   .inline-slider {
     -webkit-appearance: none;
     appearance: none;
@@ -292,25 +271,20 @@
     border-radius: 2px;
     outline: none;
   }
-  
   .inline-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 14px; height: 14px;
     background: var(--accent);
     border-radius: 50%;
     cursor: pointer;
   }
-  
   .inline-slider::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
+    width: 14px; height: 14px;
     background: var(--accent);
     border-radius: 50%;
     cursor: pointer;
     border: none;
   }
-  
   .scale-readout {
     font-size: 11px;
     color: var(--text);
@@ -318,8 +292,7 @@
     min-width: 36px;
     text-align: right;
   }
-  
-  /* Inline colors */
+
   .inline-colors {
     display: flex;
     gap: 4px;
@@ -331,9 +304,7 @@
     height: 32px;
     flex-shrink: 0;
   }
-  
   .inline-colors.disabled { opacity: 0.45; pointer-events: none; }
-  
   .inline-colors label {
     font-size: 10px;
     color: var(--text-dim);
@@ -341,13 +312,10 @@
     letter-spacing: 1px;
     margin-right: 2px;
   }
-  
   .color-row { display: flex; gap: 4px; align-items: center; }
   .color-divider { width: 1px; height: 18px; background: var(--border-light); margin: 0 2px; }
-  
   .mini-swatch {
-    width: 18px;
-    height: 18px;
+    width: 18px; height: 18px;
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
@@ -356,28 +324,22 @@
     padding: 0;
     box-shadow: 0 0 0 1px var(--border-light);
   }
-  
   .mini-swatch:hover { transform: scale(1.15); }
   .mini-swatch.active {
     border-color: var(--text);
     box-shadow: 0 0 0 1px var(--accent);
   }
-  
   .mini-swatch.no-color { background: var(--bg-canvas); }
   .mini-swatch.no-color::after {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 2px;
-    right: 2px;
+    top: 50%; left: 2px; right: 2px;
     height: 2px;
     background: var(--danger);
     transform: rotate(-45deg);
   }
-  
   .picker-btn {
-    width: 22px;
-    height: 22px;
+    width: 22px; height: 22px;
     border-radius: 4px;
     border: 1px dashed var(--border-light);
     background: var(--bg-panel);
@@ -391,14 +353,13 @@
     justify-content: center;
     transition: all 0.15s;
   }
-  
   .picker-btn:hover {
     background: var(--bg-elev);
     color: var(--accent);
     border-color: var(--accent);
   }
-  
-  /* ============ Pieces Needed Panel ============ */
+
+  /* ============ Pieces Needed Panel (stays compact!) ============ */
   .bom-panel {
     position: absolute;
     bottom: 16px;
@@ -409,17 +370,15 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     z-index: 100;
     width: 280px;
-    max-height: calc(100vh - 200px);
+    max-height: 280px;          /* fixed compact height */
     display: flex;
     flex-direction: column;
     transition: width 0.25s ease, max-height 0.25s ease;
   }
-  
   .bom-panel.expanded {
     width: 480px;
     max-height: calc(100vh - 130px);
   }
-  
   .bom-header {
     padding: 14px 16px;
     border-bottom: 1px solid var(--border);
@@ -427,8 +386,8 @@
     align-items: center;
     justify-content: space-between;
     user-select: none;
+    flex-shrink: 0;
   }
-  
   .bom-header h3 {
     font-size: 11px;
     text-transform: uppercase;
@@ -436,9 +395,7 @@
     color: var(--text-dim);
     font-weight: 600;
   }
-  
   .bom-header-actions { display: flex; gap: 6px; align-items: center; }
-  
   .bom-count-pill {
     background: var(--accent);
     color: #1a1d24;
@@ -447,7 +404,6 @@
     font-size: 11px;
     font-weight: 700;
   }
-  
   .bom-expand-btn {
     background: none;
     border: none;
@@ -458,13 +414,10 @@
     transition: color 0.15s;
     line-height: 1;
   }
-  
   .bom-expand-btn:hover { color: var(--accent); }
-  .bom-body { overflow-y: auto; padding: 12px 16px; flex: 1; }
-  
+  .bom-body { overflow-y: auto; padding: 12px 16px; flex: 1; min-height: 0; }
   .bom-piece-group { margin-bottom: 14px; }
   .bom-piece-group:last-child { margin-bottom: 0; }
-  
   .bom-piece-header {
     font-size: 12px;
     font-weight: 600;
@@ -475,9 +428,7 @@
     display: flex;
     justify-content: space-between;
   }
-  
   .bom-piece-header span:last-child { color: var(--accent); }
-  
   .bom-variation {
     display: flex;
     justify-content: space-between;
@@ -485,18 +436,14 @@
     padding: 4px 0;
     font-size: 12px;
   }
-  
   .bom-variation-label { color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
-  
   .color-dot {
-    width: 10px;
-    height: 10px;
+    width: 10px; height: 10px;
     border-radius: 50%;
     border: 1px solid var(--border-light);
     display: inline-block;
   }
-  
-  .bom-count { 
+  .bom-count {
     color: var(--text);
     font-weight: 600;
     background: var(--bg-elev);
@@ -504,7 +451,6 @@
     border-radius: 10px;
     font-size: 11px;
   }
-  
   .bom-total {
     margin-top: 12px;
     padding-top: 12px;
@@ -515,10 +461,9 @@
     font-size: 13px;
     color: var(--accent);
   }
-  
   .empty-state { color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px 0; }
-  
-  /* ============ Help text ============ */
+
+  /* ============ Help ============ */
   .help {
     position: absolute;
     bottom: 16px;
@@ -531,10 +476,9 @@
     border-radius: 8px;
     line-height: 1.7;
     z-index: 99;
-    max-width: 560px;
+    max-width: 620px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   }
-  
   .help kbd {
     background: var(--bg-elev);
     border: 1px solid var(--border-light);
@@ -544,15 +488,13 @@
     font-size: 10px;
     color: var(--text);
   }
-  
+
   /* ============ Ghost & Snap ============ */
   .ghost { position: absolute; pointer-events: none; opacity: 0.5; z-index: 999; }
   .ghost img { display: block; pointer-events: none; }
-  
   .snap-indicator {
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 12px; height: 12px;
     border-radius: 50%;
     background: var(--success);
     transform: translate(-50%, -50%);
@@ -561,12 +503,11 @@
     box-shadow: 0 0 0 4px rgba(95, 184, 120, 0.3);
     animation: snapPulse 0.6s ease-in-out infinite alternate;
   }
-  
   @keyframes snapPulse {
     from { transform: translate(-50%, -50%) scale(1); }
     to { transform: translate(-50%, -50%) scale(1.3); }
   }
-  
+
   /* ============ Marquee ============ */
   .marquee-rect {
     position: absolute;
@@ -575,49 +516,43 @@
     pointer-events: none;
     z-index: 997;
   }
-  
+
   /* ============ Background context menu ============ */
   .bg-menu {
     position: absolute;
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px;
+    padding: 14px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
     z-index: 2000;
     display: none;
+    min-width: 240px;
   }
-  
   .bg-menu.visible { display: block; }
-  
   .bg-menu-title {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: var(--text-dim);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     font-weight: 600;
   }
-  
   .bg-presets {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     gap: 6px;
   }
-  
   .bg-preset {
-    width: 26px;
-    height: 26px;
+    width: 26px; height: 26px;
     border-radius: 50%;
     border: 2px solid var(--border-light);
     cursor: pointer;
     transition: transform 0.1s;
     padding: 0;
   }
-  
   .bg-preset:hover { transform: scale(1.1); border-color: var(--accent); }
   .bg-preset.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-  
   .bg-menu-row {
     display: flex;
     align-items: center;
@@ -626,9 +561,16 @@
     padding-top: 10px;
     border-top: 1px solid var(--border);
   }
-  
-  .bg-menu-row label { font-size: 11px; color: var(--text-dim); }
-  
+  .bg-menu-row label { font-size: 11px; color: var(--text-dim); flex: 1; }
+  .bg-menu-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .bg-menu-actions .btn { flex: 1; justify-content: center; font-size: 11px; }
+
   /* ============ Calibration ============ */
   .calib-overlay {
     position: fixed; top: 0; left: 0;
@@ -642,15 +584,11 @@
     padding: 30px;
     overflow: auto;
   }
-  
   .calib-overlay.active { display: flex; }
-  
   .calib-header { color: var(--text); text-align: center; margin-bottom: 16px; max-width: 700px; }
   .calib-header h2 { font-size: 22px; margin-bottom: 8px; font-weight: 600; color: var(--accent); }
   .calib-header p { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
-  
   .calib-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
-  
   .calib-tab {
     background: var(--bg-elev);
     color: var(--text);
@@ -661,11 +599,9 @@
     font-size: 13px;
     font-family: inherit;
   }
-  
   .calib-tab:hover { background: #353c4a; }
   .calib-tab.active { background: var(--accent); color: #1a1d24; border-color: var(--accent); }
   .calib-tab.has-data::after { content: ' ✓'; color: var(--success); }
-  
   .calib-canvas-wrap {
     position: relative;
     background: var(--bg-canvas);
@@ -673,7 +609,6 @@
     padding: 20px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
   }
-  
   .calib-canvas {
     position: relative;
     cursor: crosshair;
@@ -682,9 +617,7 @@
     border-radius: 4px;
     overflow: hidden;
   }
-  
   .calib-canvas img { display: block; pointer-events: none; -webkit-user-drag: none; }
-  
   .calib-anchor {
     position: absolute;
     width: 20px; height: 20px;
@@ -697,7 +630,6 @@
     z-index: 10;
     transition: transform 0.1s;
   }
-  
   .calib-anchor:hover { transform: translate(-50%, -50%) scale(1.3); }
   .calib-anchor::after {
     content: '';
@@ -708,9 +640,7 @@
     border-radius: 50%;
     transform: translate(-50%, -50%);
   }
-  
   .calib-controls { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
-  
   .calib-info {
     color: var(--text);
     margin-top: 12px;
@@ -721,7 +651,7 @@
     text-align: center;
     border: 1px solid var(--border);
   }
-  
+
   /* ============ Toast ============ */
   .toast {
     position: fixed;
@@ -740,7 +670,6 @@
     pointer-events: none;
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   }
-  
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
@@ -755,13 +684,13 @@
     <div class="sidebar-brand">
       <img class="brand-icon" src="ISOR1.png" alt="">
       <div>
-        <div class="brand-text">ISO Designer</div>
+        <div class="brand-text">ISO.11</div>
         <div class="brand-sub">Panel Builder</div>
       </div>
     </div>
-    
+
     <h2>Pieces</h2>
-    
+
     <div class="piece-card">
       <div class="piece-thumb" draggable="true" data-piece="ISOR1"><img src="ISOR1.png" alt=""></div>
       <div class="piece-label">Diamond Base</div>
@@ -783,31 +712,31 @@
       <div class="piece-label">End Diamond</div>
     </div>
   </aside>
-  
+
   <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">‹</button>
-  
-  <div class="canvas-wrapper" id="canvasWrapper">
-    <div class="canvas grid-on" id="canvas"></div>
-    
+
+  <div class="canvas-wrapper grid-on" id="canvasWrapper">
+    <div class="canvas" id="canvas"></div>
+
     <div class="topbar" id="topbar">
       <span class="topbar-info"><strong id="pieceCount">0</strong> pieces</span>
-      
+
       <div class="topbar-divider"></div>
-      
+
       <div class="topbar-group">
         <button class="btn icon-only" id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
         <button class="btn icon-only" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button>
         <button class="btn icon-only" id="rotateBtn" title="Rotate selected 45° (R)">⟳</button>
       </div>
-      
+
       <div class="topbar-divider"></div>
-      
+
       <div class="inline-scale disabled" id="inlineScale">
         <label>Scale</label>
         <input type="range" class="inline-slider" id="scaleSlider" min="25" max="150" step="25" value="100">
         <span class="scale-readout" id="scaleReadout">100%</span>
       </div>
-      
+
       <div class="inline-colors disabled" id="inlineColors">
         <label>Color</label>
         <div class="color-row" id="presetRow"></div>
@@ -816,24 +745,24 @@
         <button class="picker-btn" id="pickerBtn" title="Custom color">+</button>
         <input type="color" id="customColorInput" style="display:none;">
       </div>
-      
+
       <div class="topbar-divider"></div>
-      
+
       <div class="topbar-group">
         <button class="btn btn-toggle active icon-only" id="snapToggle" title="Toggle piece snapping">⊕</button>
         <button class="btn btn-toggle active icon-only" id="gridToggle" title="Toggle grid">▦</button>
         <button class="btn icon-only" id="calibrateBtn" title="Calibrate anchor points">⚙</button>
       </div>
-      
+
       <div class="topbar-spacer"></div>
-      
+
       <div class="topbar-group">
         <button class="btn btn-success" id="screenshotBtn" title="Download screenshot as JPEG">📷 Capture</button>
         <button class="btn btn-primary" id="exportBtn" title="Export pieces list">📋 Export</button>
         <button class="btn btn-danger icon-only" id="clearBtn" title="Clear all">🗑</button>
       </div>
     </div>
-    
+
     <div class="bom-panel" id="bomPanel">
       <div class="bom-header">
         <h3>Pieces Needed</h3>
@@ -846,19 +775,28 @@
         <div class="empty-state">Drop pieces to start designing</div>
       </div>
     </div>
-    
+
     <div class="help">
-      Drag pieces · <kbd>R</kbd> rotate · <kbd>←↑↓→</kbd> nudge · <kbd>Shift+drag</kbd> select multiple · <kbd>Scroll</kbd> zoom · <kbd>Drag canvas</kbd> pan · <kbd>Right-click</kbd> background
+      Drag pieces · <kbd>R</kbd> rotate · <kbd>←↑↓→</kbd> nudge · <kbd>Shift+drag</kbd> select · <kbd>Scroll</kbd> zoom · <kbd>Drag canvas</kbd> pan · <kbd>Right-click bg</kbd> color/image
     </div>
-    
-    <!-- Background color context menu -->
+
     <div class="bg-menu" id="bgMenu">
-      <div class="bg-menu-title">Background Color</div>
+      <div class="bg-menu-title">Background</div>
       <div class="bg-presets" id="bgPresets"></div>
       <div class="bg-menu-row">
-        <label>Custom:</label>
+        <label>Custom color:</label>
         <input type="color" id="bgCustomInput" value="#f4f1ea">
       </div>
+      <div class="bg-menu-actions">
+        <button class="btn" id="bgImageBtn">🖼 Set Image</button>
+        <button class="btn" id="bgImageRemoveBtn" style="display:none;">Remove Image</button>
+      </div>
+      <div class="bg-menu-row" id="bgImageScaleRow" style="display:none;">
+        <label>Image size:</label>
+        <input type="range" class="inline-slider" id="bgImageScaleSlider" min="10" max="300" step="5" value="100" style="width:110px;">
+        <span class="scale-readout" id="bgImageScaleReadout">100%</span>
+      </div>
+      <input type="file" id="bgImageInput" accept="image/*" style="display:none;">
     </div>
   </div>
 </div>
@@ -892,7 +830,18 @@
   const ROTATION_STEP = 45;
   const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 4;
-  
+  const GRID_CELL_W = 80;
+  const GRID_CELL_H = 80 * Math.sqrt(3) / 2;  // ≈69.282
+
+  // Reduced zoom sensitivity (fix #6). Smaller multiplier = slower zoom.
+  const ZOOM_SENSITIVITY = 0.0009;
+
+  // Selection outline color (matches --accent) and snap color (matches --success)
+  const SEL_COLOR = '#d4a574';
+  const SEL_GLOW  = 'rgba(212, 165, 116, 0.7)';
+  const SNAP_COLOR = '#5fb878';
+  const SNAP_GLOW = 'rgba(95, 184, 120, 0.7)';
+
   const PIECE_TYPES = ['ISOR1', 'ISOR2', 'ISOR3', 'ISOR4', 'ISOR5'];
   const PIECE_LABELS = {
     'ISOR1': 'Diamond Base',
@@ -901,8 +850,7 @@
     'ISOR4': 'Corner Triple',
     'ISOR5': 'End Diamond',
   };
-  
-  // Preset colors
+
   const COLORS = [
     { name: 'None', value: null },
     { name: 'Terracotta', value: '#d4683f' },
@@ -912,17 +860,18 @@
     { name: 'Plum', value: '#8a5a8a' },
     { name: 'Charcoal', value: '#3a3f4a' },
   ];
-  
+
   const BG_PRESETS = [
     '#f4f1ea', '#ffffff', '#e8e2d4', '#dde2e8',
     '#1a1d24', '#2b3142', '#8a8a8a', '#c9c0a8',
     '#d9c5b0', '#b5c4a0', '#a8b5c8', '#cfb5b5',
   ];
-  
+
   // === State ===
   let placedPieces = [];
   let pieceIdCounter = 0;
-  let selectedPieceIds = []; // now an array for multi-select
+  let selectedPieceIds = [];
+  let snappingPieceIds = new Set();   // transient drag-snap state for filter rendering
   let snapEnabled = true;
   let gridVisible = true;
   let bomExpanded = false;
@@ -932,88 +881,141 @@
   let calibCurrentPiece = null;
   let viewTransform = { x: 0, y: 0, zoom: 1 };
   let canvasBackgroundColor = '#f4f1ea';
+  let canvasBackgroundImage = null;  // { src, naturalWidth, naturalHeight, x, y, scale }
+
+  // ============================================================
+  // === UNIVERSAL ANCHOR POINTS (baked-in defaults) ============
+  // ============================================================
+  // These snap points ship with the app for EVERYONE who loads the file.
+  // To set them universally for your GitHub-hosted version:
+  //   1. Open the app, click ⚙ to calibrate, place your anchors on each piece.
+  //   2. Click "📋 Copy Anchors" — it copies a DEFAULT_ANCHOR_POINTS = {...} block.
+  //   3. Paste that block over the one below, save, and commit to GitHub.
+  // Anyone who loads the file then gets these anchors automatically.
+  //
+  // USE_LOCAL_OVERRIDE = false  -> force these baked-in anchors for everyone
+  //                                (ignores any local tweaks a visitor makes)
+  // USE_LOCAL_OVERRIDE = true   -> let a visitor's own calibration override
+  //                                in their browser only (saved to localStorage)
+  const USE_LOCAL_OVERRIDE = true;
+
+  const DEFAULT_ANCHOR_POINTS = {
+    'ISOR1': [],
+    'ISOR2': [],
+    'ISOR3': [],
+    'ISOR4': [],
+    'ISOR5': [],
+  };
+
   let ANCHOR_POINTS = {};
-  
-  // Loaded images for screenshot rendering
+
+  // Loaded piece images for screenshot rendering
   const loadedImages = {};
   PIECE_TYPES.forEach(type => {
     const img = new Image();
     img.src = type + '.png';
     loadedImages[type] = img;
   });
-  
+
   function loadAnchors() {
-    const saved = localStorage.getItem('isoAnchors');
-    if (saved) { try { ANCHOR_POINTS = JSON.parse(saved); } catch { ANCHOR_POINTS = {}; } }
+    // Start from the baked-in universal defaults (deep copy)
+    ANCHOR_POINTS = JSON.parse(JSON.stringify(DEFAULT_ANCHOR_POINTS));
+    // Optionally let this browser's saved calibration override the defaults
+    if (USE_LOCAL_OVERRIDE) {
+      const saved = localStorage.getItem('isoAnchors');
+      if (saved) {
+        try {
+          const local = JSON.parse(saved);
+          PIECE_TYPES.forEach(t => {
+            if (Array.isArray(local[t])) ANCHOR_POINTS[t] = local[t];
+          });
+        } catch { /* keep defaults */ }
+      }
+    }
     PIECE_TYPES.forEach(t => { if (!ANCHOR_POINTS[t]) ANCHOR_POINTS[t] = []; });
   }
-  function saveAnchors() { localStorage.setItem('isoAnchors', JSON.stringify(ANCHOR_POINTS)); }
+  function saveAnchors() {
+    if (USE_LOCAL_OVERRIDE) localStorage.setItem('isoAnchors', JSON.stringify(ANCHOR_POINTS));
+  }
   loadAnchors();
-  
+
   function getRecentColors() {
     try { return JSON.parse(sessionStorage.getItem('recentColors') || '[]'); } catch { return []; }
   }
   function addRecentColor(color) {
     if (!color) return;
-    let recent = getRecentColors().filter(c => c !== color);
+    let recent = getRecentColors().filter(c => c.toLowerCase() !== color.toLowerCase());
     recent.unshift(color);
     recent = recent.slice(0, 6);
     sessionStorage.setItem('recentColors', JSON.stringify(recent));
     renderRecentColors();
   }
-  
+
   // === Undo/Redo ===
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 100;
-  
+
   function snapshotState() {
     return {
       pieces: placedPieces.map(p => ({ ...p })),
       bg: canvasBackgroundColor,
+      bgImage: canvasBackgroundImage ? { ...canvasBackgroundImage } : null,
     };
   }
-  
+
   function pushUndo() {
     undoStack.push(snapshotState());
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack.length = 0;
     updateUndoRedoButtons();
   }
-  
+
   function restoreState(state) {
     document.querySelectorAll('.placed-piece').forEach(el => el.remove());
     placedPieces = [];
     selectedPieceIds = [];
+    snappingPieceIds.clear();
     state.pieces.forEach(p => {
       placedPieces.push({ ...p });
       createPieceElement({ ...p });
     });
     canvasBackgroundColor = state.bg;
-    canvas.style.backgroundColor = canvasBackgroundColor;
+    canvasWrapper.style.backgroundColor = canvasBackgroundColor;
+    canvasBackgroundImage = state.bgImage ? { ...state.bgImage } : null;
+    renderBgImage();
     updateBOM();
     updateTopbarControls();
     updateUndoRedoButtons();
   }
-  
+
   function undo() { if (undoStack.length === 0) return; redoStack.push(snapshotState()); restoreState(undoStack.pop()); }
   function redo() { if (redoStack.length === 0) return; undoStack.push(snapshotState()); restoreState(redoStack.pop()); }
-  
+
   function updateUndoRedoButtons() {
     document.getElementById('undoBtn').disabled = undoStack.length === 0;
     document.getElementById('redoBtn').disabled = redoStack.length === 0;
   }
-  
+
   // === DOM refs ===
   const canvas = document.getElementById('canvas');
   const canvasWrapper = document.getElementById('canvasWrapper');
   const bgMenu = document.getElementById('bgMenu');
-  
+
   // === View transform ===
   function applyViewTransform() {
     canvas.style.transform = `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.zoom})`;
+    updateGridBackground();
   }
-  
+
+  // Fix #3: grid pattern on the wrapper, scaled+offset to follow world coords -> appears infinite
+  function updateGridBackground() {
+    if (!gridVisible) return;
+    const z = viewTransform.zoom;
+    canvasWrapper.style.backgroundSize = `${GRID_CELL_W * z}px ${GRID_CELL_H * z}px`;
+    canvasWrapper.style.backgroundPosition = `${viewTransform.x}px ${viewTransform.y}px`;
+  }
+
   function screenToWorld(clientX, clientY) {
     const rect = canvasWrapper.getBoundingClientRect();
     return {
@@ -1021,8 +1023,8 @@
       y: (clientY - rect.top - viewTransform.y) / viewTransform.zoom,
     };
   }
-  
-  function zoom(factor, clientX, clientY) {
+
+  function zoomAt(factor, clientX, clientY) {
     const rect = canvasWrapper.getBoundingClientRect();
     const sx = clientX - rect.left;
     const sy = clientY - rect.top;
@@ -1034,14 +1036,13 @@
     viewTransform.zoom = newZoom;
     applyViewTransform();
   }
-  
-  // === Color filters ===
+
+  // === Color filters (SVG tint) ===
   const SVG_NS = 'http://www.w3.org/2000/svg';
   function hexToRgb(hex) {
     const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : { r: 255, g: 255, b: 255 };
   }
-  
   function getOrCreateColorFilter(color) {
     const safeId = color.replace('#', '');
     const filterId = `tint-${safeId}`;
@@ -1059,7 +1060,37 @@
     defs.appendChild(filter);
     return filterId;
   }
-  
+
+  // Fix #4: shape-following outline by stacking drop-shadows
+  function buildPieceFilter(piece, selected, snapping) {
+    const parts = [];
+    if (piece.color) {
+      parts.push(`url(#${getOrCreateColorFilter(piece.color)})`);
+    }
+    const c = snapping ? SNAP_COLOR : (selected ? SEL_COLOR : null);
+    const g = snapping ? SNAP_GLOW : SEL_GLOW;
+    if (c) {
+      parts.push(`drop-shadow(2px 0 0 ${c})`);
+      parts.push(`drop-shadow(-2px 0 0 ${c})`);
+      parts.push(`drop-shadow(0 2px 0 ${c})`);
+      parts.push(`drop-shadow(0 -2px 0 ${c})`);
+      parts.push(`drop-shadow(0 0 6px ${g})`);
+    }
+    return parts.join(' ');
+  }
+
+  function updatePieceFilter(pieceId) {
+    const piece = placedPieces.find(p => p.id === pieceId);
+    if (!piece) return;
+    const el = document.querySelector(`.placed-piece[data-id="${pieceId}"]`);
+    if (!el) return;
+    const img = el.querySelector('img');
+    if (!img) return;
+    const selected = selectedPieceIds.includes(pieceId);
+    const snapping = snappingPieceIds.has(pieceId);
+    img.style.filter = buildPieceFilter(piece, selected, snapping);
+  }
+
   // === Preset color swatches ===
   const presetRow = document.getElementById('presetRow');
   COLORS.forEach(c => {
@@ -1081,7 +1112,7 @@
     });
     presetRow.appendChild(btn);
   });
-  
+
   function renderRecentColors() {
     const recent = getRecentColors();
     const row = document.getElementById('recentRow');
@@ -1104,35 +1135,51 @@
     });
     divider.style.display = recent.length > 0 ? 'block' : 'none';
   }
-  
   renderRecentColors();
-  
-  // Custom color picker
+
+  // === Fix #1: Custom color picker only adds to recents on `change`, not on every `input` tick ===
   const pickerBtn = document.getElementById('pickerBtn');
   const customColorInput = document.getElementById('customColorInput');
-  
+  let customPickerPushedUndo = false;
+  let customPickerActive = false;
+
   pickerBtn.addEventListener('click', () => {
     if (selectedPieceIds.length === 0) {
       showToast('Select a piece first');
       return;
     }
+    customPickerPushedUndo = false;
+    customPickerActive = true;
     customColorInput.click();
   });
-  
+
+  // Live preview during scrubbing — apply color to selected pieces, but don't touch recents
   customColorInput.addEventListener('input', (e) => {
-    const color = e.target.value;
-    if (selectedPieceIds.length === 0) return;
-    pushUndo();
-    selectedPieceIds.forEach(id => applyColor(id, color));
-    addRecentColor(color);
+    if (!customPickerActive || selectedPieceIds.length === 0) return;
+    if (!customPickerPushedUndo) {
+      pushUndo();
+      customPickerPushedUndo = true;
+    }
+    selectedPieceIds.forEach(id => applyColor(id, e.target.value));
     updateTopbarControls();
   });
-  
+
+  // Picker closed / committed -> THIS is where we add a single recent entry
+  customColorInput.addEventListener('change', (e) => {
+    if (!customPickerActive || selectedPieceIds.length === 0) {
+      customPickerActive = false;
+      return;
+    }
+    addRecentColor(e.target.value);
+    customPickerActive = false;
+    customPickerPushedUndo = false;
+    updateTopbarControls();
+  });
+
   // === Scale slider ===
   const scaleSlider = document.getElementById('scaleSlider');
   const scaleReadout = document.getElementById('scaleReadout');
   let scaleSliderDidPush = false;
-  
   scaleSlider.addEventListener('input', (e) => {
     const scale = parseInt(e.target.value);
     scaleReadout.textContent = scale + '%';
@@ -1140,14 +1187,12 @@
     if (!scaleSliderDidPush) { pushUndo(); scaleSliderDidPush = true; }
     selectedPieceIds.forEach(id => applyScale(id, scale / 100));
   });
-  
   scaleSlider.addEventListener('change', () => { scaleSliderDidPush = false; });
-  
+
   // === Topbar controls update ===
   function updateTopbarControls() {
     const inlineScale = document.getElementById('inlineScale');
     const inlineColors = document.getElementById('inlineColors');
-    
     if (selectedPieceIds.length > 0) {
       inlineScale.classList.remove('disabled');
       inlineColors.classList.remove('disabled');
@@ -1156,7 +1201,6 @@
         const pct = Math.round((firstPiece.scale || 1.0) * 100);
         scaleSlider.value = pct;
         scaleReadout.textContent = pct + '%';
-        // Active color swatch
         document.querySelectorAll('.mini-swatch').forEach(s => {
           const sColor = s.dataset.color === 'none' ? null : s.dataset.color;
           s.classList.toggle('active', sColor === firstPiece.color);
@@ -1170,10 +1214,9 @@
       scaleSlider.value = 100;
     }
   }
-  
+
   // === Anchor utilities ===
   function getPieceDisplaySize(piece) { return PIECE_DISPLAY_SIZE * (piece.scale || 1.0); }
-  
   function getWorldAnchors(piece) {
     const anchors = ANCHOR_POINTS[piece.type] || [];
     const size = getPieceDisplaySize(piece);
@@ -1186,7 +1229,6 @@
       return { x: piece.x + rx, y: piece.y + ry };
     });
   }
-  
   function findSnapOffset(piece, excludeId = null) {
     const myAnchors = getWorldAnchors(piece);
     let bestSnap = null;
@@ -1208,7 +1250,7 @@
     }
     return { snap: bestSnap, snapAnchors };
   }
-  
+
   // === Sidebar drag ===
   document.querySelectorAll('.piece-thumb').forEach(thumb => {
     thumb.addEventListener('dragstart', (e) => {
@@ -1224,20 +1266,18 @@
       clearSnapIndicators();
     });
   });
-  
+
   canvasWrapper.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     if (draggingFromSidebar) {
       const w = screenToWorld(e.clientX, e.clientY);
-      showGhost(draggingFromSidebar, w.x, w.y, e.clientX, e.clientY);
+      showGhost(draggingFromSidebar, w.x, w.y);
     }
   });
-  
   canvasWrapper.addEventListener('dragleave', (e) => {
     if (e.target === canvasWrapper) { removeGhost(); clearSnapIndicators(); }
   });
-  
   canvasWrapper.addEventListener('drop', (e) => {
     e.preventDefault();
     if (draggingFromSidebar) {
@@ -1254,8 +1294,8 @@
       clearSnapIndicators();
     }
   });
-  
-  function showGhost(pieceType, worldX, worldY, screenX, screenY) {
+
+  function showGhost(pieceType, worldX, worldY) {
     let ghost = document.getElementById('ghost');
     if (!ghost) {
       ghost = document.createElement('div');
@@ -1272,7 +1312,6 @@
       img.style.width = PIECE_DISPLAY_SIZE + 'px';
       img.style.height = PIECE_DISPLAY_SIZE + 'px';
     }
-    
     let gx = worldX, gy = worldY;
     clearSnapIndicators();
     if (snapEnabled && placedPieces.length > 0) {
@@ -1287,12 +1326,10 @@
     ghost.style.top = gy + 'px';
     ghost.style.transform = 'translate(-50%, -50%)';
   }
-  
   function removeGhost() {
     const ghost = document.getElementById('ghost');
     if (ghost) ghost.remove();
   }
-  
   function showSnapIndicator(worldX, worldY) {
     clearSnapIndicators();
     const dot = document.createElement('div');
@@ -1302,12 +1339,11 @@
     canvas.appendChild(dot);
     activeSnapIndicators.push(dot);
   }
-  
   function clearSnapIndicators() {
     activeSnapIndicators.forEach(d => d.remove());
     activeSnapIndicators = [];
   }
-  
+
   // === Add/Create Piece ===
   function addPiece(pieceType, x, y, rotation) {
     const id = ++pieceIdCounter;
@@ -1317,7 +1353,7 @@
     updateBOM();
     selectPieces([id]);
   }
-  
+
   function createPieceElement(piece) {
     const size = getPieceDisplaySize(piece);
     const el = document.createElement('div');
@@ -1336,53 +1372,48 @@
     canvas.appendChild(el);
     setupPieceDrag(el, piece);
     setupPieceContext(el, piece);
-    if (piece.color) applyColor(piece.id, piece.color);
+    updatePieceFilter(piece.id);
   }
-  
-  // === Piece drag (single OR group) ===
+
   function setupPieceDrag(el, piece) {
     let startX = 0, startY = 0, initialPositions = {};
     let isDragging = false;
     let didPush = false;
-    
+
     el.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
       e.stopPropagation();
       hideBgMenu();
-      
-      // Selection logic
+
       if (e.shiftKey) {
-        // Toggle in selection
         if (selectedPieceIds.includes(piece.id)) {
           selectPieces(selectedPieceIds.filter(id => id !== piece.id));
-          return; // no drag
+          return;
         } else {
           selectPieces([...selectedPieceIds, piece.id]);
         }
       } else if (!selectedPieceIds.includes(piece.id)) {
         selectPieces([piece.id]);
       }
-      
-      // Save initial positions of all selected pieces
+
       initialPositions = {};
       selectedPieceIds.forEach(id => {
         const p = placedPieces.find(pp => pp.id === id);
         if (p) initialPositions[id] = { x: p.x, y: p.y };
       });
-      
+
       startX = e.clientX;
       startY = e.clientY;
       isDragging = true;
       didPush = false;
       el.classList.add('dragging');
-      
+
       const moveHandler = (e) => {
         if (!isDragging) return;
         if (!didPush) { pushUndo(); didPush = true; }
         const dxWorld = (e.clientX - startX) / viewTransform.zoom;
         const dyWorld = (e.clientY - startY) / viewTransform.zoom;
-        
-        // First pass: move all selected pieces by raw delta
+
         selectedPieceIds.forEach(id => {
           const p = placedPieces.find(pp => pp.id === id);
           const init = initialPositions[id];
@@ -1390,25 +1421,33 @@
           p.x = init.x + dxWorld;
           p.y = init.y + dyWorld;
         });
-        
-        // Snap (only when single piece selected for cleaner behavior)
+
         clearSnapIndicators();
         let snapDx = 0, snapDy = 0;
+        let wasSnapping = false;
         if (selectedPieceIds.length === 1 && snapEnabled) {
           const result = findSnapOffset(piece, piece.id);
           if (result.snap) {
             snapDx = result.snap.x - piece.x;
             snapDy = result.snap.y - piece.y;
-            el.classList.add('snapping');
+            wasSnapping = true;
             if (result.snapAnchors) showSnapIndicator(result.snapAnchors.snappedAt.x, result.snapAnchors.snappedAt.y);
-          } else {
-            el.classList.remove('snapping');
+          }
+        }
+
+        // Update transient snap state for filter rendering
+        if (wasSnapping) {
+          if (!snappingPieceIds.has(piece.id)) {
+            snappingPieceIds.add(piece.id);
+            updatePieceFilter(piece.id);
           }
         } else {
-          el.classList.remove('snapping');
+          if (snappingPieceIds.has(piece.id)) {
+            snappingPieceIds.delete(piece.id);
+            updatePieceFilter(piece.id);
+          }
         }
-        
-        // Apply snap correction to all selected (keeps group offsets intact)
+
         selectedPieceIds.forEach(id => {
           const p = placedPieces.find(pp => pp.id === id);
           if (!p) return;
@@ -1421,21 +1460,24 @@
           }
         });
       };
-      
+
       const upHandler = () => {
         isDragging = false;
         el.classList.remove('dragging');
-        el.classList.remove('snapping');
+        // Clear snap state for all selected pieces
+        const wasSnapping = snappingPieceIds.has(piece.id);
+        snappingPieceIds.clear();
+        if (wasSnapping) updatePieceFilter(piece.id);
         clearSnapIndicators();
         document.removeEventListener('mousemove', moveHandler);
         document.removeEventListener('mouseup', upHandler);
       };
-      
+
       document.addEventListener('mousemove', moveHandler);
       document.addEventListener('mouseup', upHandler);
     });
   }
-  
+
   function setupPieceContext(el, piece) {
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
@@ -1443,19 +1485,15 @@
       if (!selectedPieceIds.includes(piece.id)) selectPieces([piece.id]);
     });
   }
-  
+
   function applyColor(pieceId, color) {
     const piece = placedPieces.find(p => p.id === pieceId);
     if (!piece) return;
     piece.color = color;
-    const el = document.querySelector(`.placed-piece[data-id="${pieceId}"]`);
-    if (!el) return;
-    const img = el.querySelector('img');
-    if (!img) return;
-    img.style.filter = color === null ? '' : `url(#${getOrCreateColorFilter(color)})`;
+    updatePieceFilter(pieceId);
     updateBOM();
   }
-  
+
   function applyScale(pieceId, scale) {
     const piece = placedPieces.find(p => p.id === pieceId);
     if (!piece) return;
@@ -1469,28 +1507,27 @@
     if (img) { img.style.width = size + 'px'; img.style.height = size + 'px'; }
     updateBOM();
   }
-  
+
   function selectPieces(ids) {
+    const prev = new Set(selectedPieceIds);
     selectedPieceIds = [...ids];
-    document.querySelectorAll('.placed-piece').forEach(el => {
-      el.classList.toggle('selected', selectedPieceIds.includes(parseInt(el.dataset.id)));
-    });
+    const next = new Set(selectedPieceIds);
+    const toUpdate = new Set([...prev, ...next]);
+    toUpdate.forEach(id => updatePieceFilter(id));
     updateTopbarControls();
   }
-  
-  // === Canvas-level interactions: pan, marquee, deselect ===
+
+  // === Canvas-level: pan, marquee, deselect ===
   let isPanning = false, panStart = null;
   let isMarqueeing = false, marqueeStart = null, marqueeEl = null;
-  
+  let panMoved = false;
+
   canvasWrapper.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
-    // Only when clicking on empty canvas/wrapper area (not on a piece)
     if (e.target !== canvasWrapper && e.target !== canvas) return;
-    
     hideBgMenu();
-    
+
     if (e.shiftKey) {
-      // Start marquee
       isMarqueeing = true;
       marqueeStart = { x: e.clientX, y: e.clientY };
       marqueeEl = document.createElement('div');
@@ -1498,16 +1535,13 @@
       canvasWrapper.appendChild(marqueeEl);
       canvasWrapper.classList.add('marqueeing');
     } else {
-      // Start pan
       isPanning = true;
+      panMoved = false;
       panStart = { x: e.clientX, y: e.clientY, tx: viewTransform.x, ty: viewTransform.y };
       canvasWrapper.classList.add('panning');
-      // Deselect on plain click (will commit on mouseup if no movement)
     }
   });
-  
-  let panMoved = false;
-  
+
   window.addEventListener('mousemove', (e) => {
     if (isPanning) {
       const dx = e.clientX - panStart.x;
@@ -1528,10 +1562,9 @@
       marqueeEl.style.height = Math.abs(y2 - y1) + 'px';
     }
   });
-  
+
   window.addEventListener('mouseup', (e) => {
     if (isPanning) {
-      // If we didn't move (just clicked), deselect everything
       if (!panMoved) {
         selectPieces([]);
       }
@@ -1540,47 +1573,53 @@
       canvasWrapper.classList.remove('panning');
     }
     if (isMarqueeing) {
-      // Compute selection
       const w1 = screenToWorld(Math.min(marqueeStart.x, e.clientX), Math.min(marqueeStart.y, e.clientY));
       const w2 = screenToWorld(Math.max(marqueeStart.x, e.clientX), Math.max(marqueeStart.y, e.clientY));
       const newSel = placedPieces
         .filter(p => p.x >= w1.x && p.x <= w2.x && p.y >= w1.y && p.y <= w2.y)
         .map(p => p.id);
       selectPieces(newSel);
-      
       if (marqueeEl) marqueeEl.remove();
       marqueeEl = null;
       isMarqueeing = false;
       canvasWrapper.classList.remove('marqueeing');
     }
   });
-  
-  // Zoom on wheel
+
+  // Fix #6: dialed-down zoom sensitivity using exponential formula based on deltaY magnitude
   canvasWrapper.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    zoom(factor, e.clientX, e.clientY);
+    const factor = Math.exp(-e.deltaY * ZOOM_SENSITIVITY);
+    zoomAt(factor, e.clientX, e.clientY);
   }, { passive: false });
-  
-  // Right-click on canvas (empty area) -> bg color menu
+
+  // Right-click empty canvas -> bg menu
   canvasWrapper.addEventListener('contextmenu', (e) => {
     if (e.target !== canvasWrapper && e.target !== canvas) return;
     e.preventDefault();
     showBgMenu(e.clientX, e.clientY);
   });
-  
+
   // === Keyboard ===
   let lastArrowTime = 0;
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); return; }
     if (ctrl && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
-    
+
+    // Ctrl/Cmd+A -> select all pieces
+    if (ctrl && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault();
+      if (placedPieces.length > 0) {
+        selectPieces(placedPieces.map(p => p.id));
+        showToast(`Selected all ${placedPieces.length} pieces`);
+      }
+      return;
+    }
+
     if (selectedPieceIds.length === 0) return;
-    
-    // Arrow keys nudge
+
     if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
       e.preventDefault();
       const delta = e.shiftKey ? 10 : 1;
@@ -1605,7 +1644,7 @@
       });
       return;
     }
-    
+
     if (e.key === 'r' || e.key === 'R') {
       pushUndo();
       selectedPieceIds.forEach(id => {
@@ -1630,11 +1669,11 @@
       hideBgMenu();
     }
   });
-  
+
   // === Toolbar handlers ===
   document.getElementById('undoBtn').addEventListener('click', undo);
   document.getElementById('redoBtn').addEventListener('click', redo);
-  
+
   document.getElementById('rotateBtn').addEventListener('click', () => {
     if (selectedPieceIds.length === 0) { showToast('Select a piece first'); return; }
     pushUndo();
@@ -1646,19 +1685,26 @@
       if (el) el.style.transform = `translate(-50%, -50%) rotate(${p.rotation}deg)`;
     });
   });
-  
+
   document.getElementById('snapToggle').addEventListener('click', (e) => {
     snapEnabled = !snapEnabled;
     e.currentTarget.classList.toggle('active', snapEnabled);
     showToast(`Snap ${snapEnabled ? 'enabled' : 'disabled'}`);
   });
-  
+
   document.getElementById('gridToggle').addEventListener('click', (e) => {
     gridVisible = !gridVisible;
-    canvas.classList.toggle('grid-on', gridVisible);
+    canvasWrapper.classList.toggle('grid-on', gridVisible);
     e.currentTarget.classList.toggle('active', gridVisible);
+    // Clear inline bg styles when off (will be re-applied via grid-on class otherwise)
+    if (!gridVisible) {
+      canvasWrapper.style.backgroundImage = '';
+    } else {
+      canvasWrapper.style.backgroundImage = '';  // let .grid-on class drive it
+      updateGridBackground();
+    }
   });
-  
+
   document.getElementById('clearBtn').addEventListener('click', () => {
     if (placedPieces.length === 0) return;
     if (confirm('Clear all pieces?')) {
@@ -1670,11 +1716,10 @@
       showToast('Canvas cleared');
     }
   });
-  
+
   // === Sidebar toggle ===
   const sidebarEl = document.getElementById('sidebar');
   const sidebarToggleBtn = document.getElementById('sidebarToggle');
-  
   function updateSidebarToggle() {
     sidebarEl.classList.toggle('collapsed', sidebarCollapsed);
     sidebarToggleBtn.textContent = sidebarCollapsed ? '›' : '‹';
@@ -1685,11 +1730,10 @@
     updateSidebarToggle();
   });
   updateSidebarToggle();
-  
-  // === BOM expand (only via arrow button) ===
+
+  // === Fix #2: BOM expand ONLY via the arrow button. Never auto-expands. ===
   const bomPanel = document.getElementById('bomPanel');
   const bomExpandBtn = document.getElementById('bomExpandBtn');
-  
   bomExpandBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     bomExpanded = !bomExpanded;
@@ -1697,7 +1741,7 @@
     bomExpandBtn.textContent = bomExpanded ? '⤡' : '⤢';
     bomExpandBtn.title = bomExpanded ? 'Collapse' : 'Expand';
   });
-  
+
   // === Toast ===
   const toast = document.getElementById('toast');
   let toastTimeout = null;
@@ -1707,22 +1751,19 @@
     if (toastTimeout) clearTimeout(toastTimeout);
     toastTimeout = setTimeout(() => toast.classList.remove('show'), 2200);
   }
-  
+
   // ============================================
   // === Screenshot (manual canvas rendering) ==
   // ============================================
-  
   function drawTriangularGrid(ctx, x0w, y0w, x1w, y1w) {
-    const w = 80;
-    const h = w * Math.sqrt(3) / 2;
+    const w = GRID_CELL_W;
+    const h = GRID_CELL_H;
     ctx.strokeStyle = 'rgba(160, 168, 184, 0.35)';
     ctx.lineWidth = 0.6;
-    
     const x0 = Math.floor(x0w / w) * w - w;
     const y0 = Math.floor(y0w / h) * h - h;
     const x1 = Math.ceil(x1w / w) * w + w;
     const y1 = Math.ceil(y1w / h) * h + h;
-    
     for (let y = y0; y < y1; y += h) {
       for (let x = x0; x < x1; x += w) {
         ctx.beginPath();
@@ -1744,21 +1785,18 @@
       }
     }
   }
-  
+
   function drawPieceOnCanvas(ctx, piece) {
     const img = loadedImages[piece.type];
     if (!img) return;
     const size = PIECE_DISPLAY_SIZE * (piece.scale || 1);
     const half = size / 2;
-    
     ctx.save();
     ctx.translate(piece.x, piece.y);
     ctx.rotate((piece.rotation || 0) * Math.PI / 180);
-    
     if (!piece.color) {
       ctx.drawImage(img, -half, -half, size, size);
     } else {
-      // Tint via offscreen canvas
       const off = document.createElement('canvas');
       off.width = size;
       off.height = size;
@@ -1771,48 +1809,51 @@
       octx.drawImage(img, 0, 0, size, size);
       ctx.drawImage(off, -half, -half);
     }
-    
     ctx.restore();
   }
-  
+
+  // Cached HTMLImageElement for current bg image
+  let bgImageElement = null;
+
   async function takeScreenshot() {
     showToast('Capturing...');
-    
-    // Ensure all images are loaded
     await Promise.all(PIECE_TYPES.map(t => new Promise(resolve => {
       const img = loadedImages[t];
       if (img.complete && img.naturalWidth > 0) resolve();
       else { img.onload = resolve; img.onerror = resolve; }
     })));
-    
+
     const w = canvasWrapper.clientWidth;
     const h = canvasWrapper.clientHeight;
     const out = document.createElement('canvas');
     out.width = w;
     out.height = h;
     const ctx = out.getContext('2d');
-    
-    // Background
+
+    // Background color
     ctx.fillStyle = canvasBackgroundColor;
     ctx.fillRect(0, 0, w, h);
-    
-    // Apply view transform
+
     ctx.save();
     ctx.translate(viewTransform.x, viewTransform.y);
     ctx.scale(viewTransform.zoom, viewTransform.zoom);
-    
-    // Compute visible world bounds
+
     const tl = screenToWorld(0, 0);
     const br = screenToWorld(w, h);
-    
-    // Grid
+
+    // Background image (in world coords, below grid optionally)
+    if (canvasBackgroundImage && bgImageElement && bgImageElement.complete) {
+      const bi = canvasBackgroundImage;
+      const drawW = bi.naturalWidth * (bi.scale || 1);
+      const drawH = bi.naturalHeight * (bi.scale || 1);
+      ctx.drawImage(bgImageElement, bi.x, bi.y, drawW, drawH);
+    }
+
     if (gridVisible) drawTriangularGrid(ctx, tl.x, tl.y, br.x, br.y);
-    
-    // Pieces
+
     placedPieces.forEach(p => drawPieceOnCanvas(ctx, p));
-    
     ctx.restore();
-    
+
     out.toBlob(blob => {
       if (!blob) { showToast('Capture failed'); return; }
       const url = URL.createObjectURL(blob);
@@ -1826,9 +1867,8 @@
       showToast('Screenshot saved');
     }, 'image/jpeg', 0.95);
   }
-  
   document.getElementById('screenshotBtn').addEventListener('click', takeScreenshot);
-  
+
   // === Export BOM ===
   document.getElementById('exportBtn').addEventListener('click', () => {
     if (placedPieces.length === 0) { showToast('Add pieces before exporting'); return; }
@@ -1836,7 +1876,6 @@
     let text = 'ISO Wall Panel - Pieces Needed\n';
     text += `Generated: ${new Date().toLocaleString()}\n`;
     text += `Total pieces: ${placedPieces.length}\n\n`;
-    
     PIECE_TYPES.forEach(type => {
       const variants = variations[type];
       if (!variants || Object.keys(variants).length === 0) return;
@@ -1850,7 +1889,6 @@
       });
       text += '\n';
     });
-    
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1860,7 +1898,7 @@
     URL.revokeObjectURL(url);
     showToast('Pieces list exported');
   });
-  
+
   function buildVariationMap() {
     const variations = {};
     PIECE_TYPES.forEach(t => { variations[t] = {}; });
@@ -1873,23 +1911,20 @@
     });
     return variations;
   }
-  
   function colorName(hex) {
     const preset = COLORS.find(c => c.value === hex);
     if (preset) return preset.name;
     return hex;
   }
-  
+
   function updateBOM() {
     document.getElementById('pieceCount').textContent = placedPieces.length;
     document.getElementById('bomCountPill').textContent = placedPieces.length;
-    
     const bomList = document.getElementById('bomList');
     if (placedPieces.length === 0) {
       bomList.innerHTML = '<div class="empty-state">Drop pieces to start designing</div>';
       return;
     }
-    
     const variations = buildVariationMap();
     let html = '';
     PIECE_TYPES.forEach(type => {
@@ -1916,11 +1951,11 @@
     html += `<div class="bom-total"><span>Total Pieces</span><span>${placedPieces.length}</span></div>`;
     bomList.innerHTML = html;
   }
-  
+
   // ============================================
-  // === Background color menu =================
+  // === Background color + image menu =========
   // ============================================
-  
+
   const bgPresetsEl = document.getElementById('bgPresets');
   BG_PRESETS.forEach(color => {
     const btn = document.createElement('button');
@@ -1933,61 +1968,193 @@
     });
     bgPresetsEl.appendChild(btn);
   });
-  
+
   document.getElementById('bgCustomInput').addEventListener('input', (e) => {
     setBackgroundColor(e.target.value);
     updateBgMenuActive();
   });
-  
+
   function setBackgroundColor(color) {
     pushUndo();
     canvasBackgroundColor = color;
-    canvas.style.backgroundColor = color;
+    canvasWrapper.style.backgroundColor = color;
   }
-  
   function updateBgMenuActive() {
     document.querySelectorAll('.bg-preset').forEach(b => {
       b.classList.toggle('active', b.dataset.color === canvasBackgroundColor);
     });
   }
-  
   function showBgMenu(clientX, clientY) {
     const wrapperRect = canvasWrapper.getBoundingClientRect();
     bgMenu.classList.add('visible');
     bgMenu.style.left = (clientX - wrapperRect.left) + 'px';
     bgMenu.style.top = (clientY - wrapperRect.top) + 'px';
     document.getElementById('bgCustomInput').value = canvasBackgroundColor;
+    document.getElementById('bgImageRemoveBtn').style.display = canvasBackgroundImage ? '' : 'none';
+    const scaleRow = document.getElementById('bgImageScaleRow');
+    if (canvasBackgroundImage) {
+      scaleRow.style.display = '';
+      const pct = Math.round((canvasBackgroundImage.sizeFactor || 1) * 100);
+      document.getElementById('bgImageScaleSlider').value = pct;
+      document.getElementById('bgImageScaleReadout').textContent = pct + '%';
+    } else {
+      scaleRow.style.display = 'none';
+    }
     updateBgMenuActive();
-    
-    // Constrain to viewport
     setTimeout(() => {
       const r = bgMenu.getBoundingClientRect();
       if (r.right > window.innerWidth - 10) bgMenu.style.left = (window.innerWidth - r.width - 10 - wrapperRect.left) + 'px';
       if (r.bottom > window.innerHeight - 10) bgMenu.style.top = (window.innerHeight - r.height - 10 - wrapperRect.top) + 'px';
     }, 0);
   }
-  
-  function hideBgMenu() {
-    bgMenu.classList.remove('visible');
-  }
-  
+  function hideBgMenu() { bgMenu.classList.remove('visible'); }
   document.addEventListener('click', (e) => {
     if (!bgMenu.contains(e.target)) hideBgMenu();
   });
-  
-  // Init bg color
-  canvas.style.backgroundColor = canvasBackgroundColor;
-  
+  canvasWrapper.style.backgroundColor = canvasBackgroundColor;
+
+  // === Fix #5: background image upload ===
+  const bgImageBtn = document.getElementById('bgImageBtn');
+  const bgImageInput = document.getElementById('bgImageInput');
+  const bgImageRemoveBtn = document.getElementById('bgImageRemoveBtn');
+
+  bgImageBtn.addEventListener('click', () => {
+    bgImageInput.click();
+  });
+
+  bgImageInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target.result;
+      const probe = new Image();
+      probe.onload = () => {
+        // Center the image in the current viewport in WORLD coords
+        const w = canvasWrapper.clientWidth;
+        const h = canvasWrapper.clientHeight;
+        const center = screenToWorld(w / 2, h / 2);
+
+        // Auto-fit: scale so image fits within viewport at current zoom
+        const targetW = w / viewTransform.zoom * 0.9;
+        const targetH = h / viewTransform.zoom * 0.9;
+        const fitScale = Math.min(
+          targetW / probe.naturalWidth,
+          targetH / probe.naturalHeight,
+          1.0
+        );
+
+        const drawW = probe.naturalWidth * fitScale;
+        const drawH = probe.naturalHeight * fitScale;
+
+        pushUndo();
+        canvasBackgroundImage = {
+          src,
+          naturalWidth: probe.naturalWidth,
+          naturalHeight: probe.naturalHeight,
+          x: center.x - drawW / 2,
+          y: center.y - drawH / 2,
+          baseScale: fitScale,   // the auto-fit scale (100% on the slider)
+          sizeFactor: 1.0,       // user multiplier from the size slider
+          scale: fitScale,       // effective = baseScale * sizeFactor
+        };
+        renderBgImage();
+        bgImageRemoveBtn.style.display = '';
+        document.getElementById('bgImageScaleRow').style.display = '';
+        document.getElementById('bgImageScaleSlider').value = 100;
+        document.getElementById('bgImageScaleReadout').textContent = '100%';
+        showToast('Background image added');
+      };
+      probe.onerror = () => showToast('Could not load image');
+      probe.src = src;
+    };
+    reader.onerror = () => showToast('Could not read file');
+    reader.readAsDataURL(file);
+    // Reset input so picking same file again works
+    bgImageInput.value = '';
+  });
+
+  bgImageRemoveBtn.addEventListener('click', () => {
+    pushUndo();
+    canvasBackgroundImage = null;
+    renderBgImage();
+    bgImageRemoveBtn.style.display = 'none';
+    document.getElementById('bgImageScaleRow').style.display = 'none';
+    showToast('Background image removed');
+  });
+
+  // Background image scale slider — resizes about the image center
+  const bgImageScaleSlider = document.getElementById('bgImageScaleSlider');
+  const bgImageScaleReadout = document.getElementById('bgImageScaleReadout');
+  let bgScaleDidPush = false;
+  bgImageScaleSlider.addEventListener('input', (e) => {
+    if (!canvasBackgroundImage) return;
+    const pct = parseInt(e.target.value);
+    bgImageScaleReadout.textContent = pct + '%';
+    if (!bgScaleDidPush) { pushUndo(); bgScaleDidPush = true; }
+    const bi = canvasBackgroundImage;
+    // current center in world coords
+    const oldW = bi.naturalWidth * bi.scale;
+    const oldH = bi.naturalHeight * bi.scale;
+    const cx = bi.x + oldW / 2;
+    const cy = bi.y + oldH / 2;
+    bi.sizeFactor = pct / 100;
+    bi.scale = bi.baseScale * bi.sizeFactor;
+    const newW = bi.naturalWidth * bi.scale;
+    const newH = bi.naturalHeight * bi.scale;
+    bi.x = cx - newW / 2;
+    bi.y = cy - newH / 2;
+    renderBgImage();
+  });
+  bgImageScaleSlider.addEventListener('change', () => { bgScaleDidPush = false; });
+
+  function renderBgImage() {
+    let el = document.querySelector('.bg-image');
+    if (!canvasBackgroundImage) {
+      if (el) el.remove();
+      bgImageElement = null;
+      return;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'bg-image';
+      // Insert as the first child so it sits behind everything
+      canvas.insertBefore(el, canvas.firstChild);
+    }
+    const bi = canvasBackgroundImage;
+    const drawW = bi.naturalWidth * (bi.scale || 1);
+    const drawH = bi.naturalHeight * (bi.scale || 1);
+    el.style.left = bi.x + 'px';
+    el.style.top = bi.y + 'px';
+    el.style.width = drawW + 'px';
+    el.style.height = drawH + 'px';
+    let img = el.querySelector('img');
+    if (!img) {
+      img = document.createElement('img');
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.display = 'block';
+      el.appendChild(img);
+    }
+    if (img.src !== bi.src) {
+      img.src = bi.src;
+    }
+    // Cache image element for screenshot
+    if (!bgImageElement || bgImageElement.src !== bi.src) {
+      bgImageElement = new Image();
+      bgImageElement.src = bi.src;
+    }
+  }
+
   // ============================================
   // === ANCHOR CALIBRATION ===================
   // ============================================
-  
   const calibOverlay = document.getElementById('calibOverlay');
   const calibTabsContainer = document.getElementById('calibTabs');
   const calibCanvas = document.getElementById('calibCanvas');
   const calibImage = document.getElementById('calibImage');
   const calibInfo = document.getElementById('calibInfo');
-  
+
   PIECE_TYPES.forEach(type => {
     const tab = document.createElement('button');
     tab.className = 'calib-tab';
@@ -1996,7 +2163,7 @@
     tab.addEventListener('click', () => selectCalibPiece(type));
     calibTabsContainer.appendChild(tab);
   });
-  
+
   function updateCalibTabs() {
     document.querySelectorAll('.calib-tab').forEach(tab => {
       const type = tab.dataset.piece;
@@ -2004,7 +2171,6 @@
       tab.classList.toggle('has-data', (ANCHOR_POINTS[type] || []).length > 0);
     });
   }
-  
   function selectCalibPiece(type) {
     calibCurrentPiece = type;
     calibImage.src = type + '.png';
@@ -2015,7 +2181,6 @@
     updateCalibTabs();
     renderCalibAnchors();
   }
-  
   function renderCalibAnchors() {
     calibCanvas.querySelectorAll('.calib-anchor').forEach(el => el.remove());
     const anchors = ANCHOR_POINTS[calibCurrentPiece] || [];
@@ -2037,7 +2202,6 @@
     const count = (ANCHOR_POINTS[calibCurrentPiece] || []).length;
     calibInfo.textContent = `${calibCurrentPiece}: ${count} anchor${count === 1 ? '' : 's'} placed`;
   }
-  
   calibCanvas.addEventListener('click', (e) => {
     if (e.target.classList.contains('calib-anchor')) return;
     const rect = calibCanvas.getBoundingClientRect();
@@ -2049,17 +2213,14 @@
     renderCalibAnchors();
     updateCalibTabs();
   });
-  
   document.getElementById('calibrateBtn').addEventListener('click', () => {
     calibOverlay.classList.add('active');
     selectCalibPiece(PIECE_TYPES[0]);
   });
-  
   document.getElementById('calibDoneBtn').addEventListener('click', () => {
     calibOverlay.classList.remove('active');
     saveAnchors();
   });
-  
   document.getElementById('calibClearBtn').addEventListener('click', () => {
     if (!calibCurrentPiece) return;
     if (confirm(`Clear all anchors on ${calibCurrentPiece}?`)) {
@@ -2069,21 +2230,23 @@
       updateCalibTabs();
     }
   });
-  
   document.getElementById('calibExportBtn').addEventListener('click', () => {
-    let code = 'const ANCHOR_POINTS = {\n';
+    let code = '  const DEFAULT_ANCHOR_POINTS = {\n';
     PIECE_TYPES.forEach(type => {
-      code += `  '${type}': [\n`;
+      code += `    '${type}': [\n`;
       (ANCHOR_POINTS[type] || []).forEach(a => {
-        code += `    { x: ${a.x.toFixed(4)}, y: ${a.y.toFixed(4)} },\n`;
+        code += `      { x: ${a.x.toFixed(4)}, y: ${a.y.toFixed(4)} },\n`;
       });
-      code += `  ],\n`;
+      code += `    ],\n`;
     });
-    code += '};';
-    navigator.clipboard.writeText(code).then(() => showToast('Anchors copied')).catch(() => prompt('Copy anchors:', code));
+    code += '  };';
+    navigator.clipboard.writeText(code)
+      .then(() => showToast('Copied — paste over DEFAULT_ANCHOR_POINTS in the file'))
+      .catch(() => prompt('Copy this and paste over DEFAULT_ANCHOR_POINTS in the source:', code));
   });
-  
-  // Initial state
+
+  // === Init ===
+  applyViewTransform();
   updateUndoRedoButtons();
   updateTopbarControls();
 </script>
