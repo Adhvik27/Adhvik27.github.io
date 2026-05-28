@@ -1251,6 +1251,46 @@
     return { snap: bestSnap, snapAnchors };
   }
 
+  // Group snap: find the single best (dx, dy) to nudge the whole selection so that
+  // ANY selected piece's anchor lines up with ANY non-selected piece's anchor.
+  function findGroupSnapOffset(groupIds) {
+    const groupSet = new Set(groupIds);
+    const others = placedPieces.filter(p => !groupSet.has(p.id));
+    if (others.length === 0) return null;
+
+    // Precompute anchor lists for the static (non-selected) pieces
+    const otherAnchorList = [];
+    for (const other of others) {
+      for (const oa of getWorldAnchors(other)) otherAnchorList.push(oa);
+    }
+    if (otherAnchorList.length === 0) return null;
+
+    let bestDx = 0, bestDy = 0;
+    let bestDist = SNAP_DISTANCE;
+    let snappedAt = null;
+    let found = false;
+
+    for (const id of groupIds) {
+      const p = placedPieces.find(pp => pp.id === id);
+      if (!p) continue;
+      const myAnchors = getWorldAnchors(p);
+      for (const ma of myAnchors) {
+        for (const oa of otherAnchorList) {
+          const dist = Math.hypot(ma.x - oa.x, ma.y - oa.y);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestDx = oa.x - ma.x;
+            bestDy = oa.y - ma.y;
+            snappedAt = oa;
+            found = true;
+          }
+        }
+      }
+    }
+
+    return found ? { dx: bestDx, dy: bestDy, snappedAt } : null;
+  }
+
   // === Sidebar drag ===
   document.querySelectorAll('.piece-thumb').forEach(thumb => {
     thumb.addEventListener('dragstart', (e) => {
@@ -1425,28 +1465,40 @@
         clearSnapIndicators();
         let snapDx = 0, snapDy = 0;
         let wasSnapping = false;
-        if (selectedPieceIds.length === 1 && snapEnabled) {
-          const result = findSnapOffset(piece, piece.id);
-          if (result.snap) {
-            snapDx = result.snap.x - piece.x;
-            snapDy = result.snap.y - piece.y;
-            wasSnapping = true;
-            if (result.snapAnchors) showSnapIndicator(result.snapAnchors.snappedAt.x, result.snapAnchors.snappedAt.y);
+        if (snapEnabled) {
+          if (selectedPieceIds.length === 1) {
+            const result = findSnapOffset(piece, piece.id);
+            if (result.snap) {
+              snapDx = result.snap.x - piece.x;
+              snapDy = result.snap.y - piece.y;
+              wasSnapping = true;
+              if (result.snapAnchors) showSnapIndicator(result.snapAnchors.snappedAt.x, result.snapAnchors.snappedAt.y);
+            }
+          } else if (selectedPieceIds.length > 1) {
+            const g = findGroupSnapOffset(selectedPieceIds);
+            if (g) {
+              snapDx = g.dx;
+              snapDy = g.dy;
+              wasSnapping = true;
+              if (g.snappedAt) showSnapIndicator(g.snappedAt.x, g.snappedAt.y);
+            }
           }
         }
 
-        // Update transient snap state for filter rendering
-        if (wasSnapping) {
-          if (!snappingPieceIds.has(piece.id)) {
-            snappingPieceIds.add(piece.id);
-            updatePieceFilter(piece.id);
+        // Update transient snap highlight for ALL selected pieces
+        selectedPieceIds.forEach(id => {
+          if (wasSnapping) {
+            if (!snappingPieceIds.has(id)) {
+              snappingPieceIds.add(id);
+              updatePieceFilter(id);
+            }
+          } else {
+            if (snappingPieceIds.has(id)) {
+              snappingPieceIds.delete(id);
+              updatePieceFilter(id);
+            }
           }
-        } else {
-          if (snappingPieceIds.has(piece.id)) {
-            snappingPieceIds.delete(piece.id);
-            updatePieceFilter(piece.id);
-          }
-        }
+        });
 
         selectedPieceIds.forEach(id => {
           const p = placedPieces.find(pp => pp.id === id);
@@ -1464,10 +1516,11 @@
       const upHandler = () => {
         isDragging = false;
         el.classList.remove('dragging');
-        // Clear snap state for all selected pieces
-        const wasSnapping = snappingPieceIds.has(piece.id);
+        // Clear snap highlight for all pieces
+        const hadSnap = snappingPieceIds.size > 0;
+        const prevSnapping = [...snappingPieceIds];
         snappingPieceIds.clear();
-        if (wasSnapping) updatePieceFilter(piece.id);
+        if (hadSnap) prevSnapping.forEach(id => updatePieceFilter(id));
         clearSnapIndicators();
         document.removeEventListener('mousemove', moveHandler);
         document.removeEventListener('mouseup', upHandler);
